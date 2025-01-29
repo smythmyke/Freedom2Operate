@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import SearchIcon from '@mui/icons-material/Search';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import SecurityIcon from '@mui/icons-material/Security';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
 const LandingPage = () => {
   const navigate = useNavigate();
@@ -28,7 +29,7 @@ const LandingPage = () => {
               Comprehensive Search
             </Typography>
             <Typography color="text.secondary">
-              Thorough analysis of existing patents and publications to identify potential conflicts
+              4-8 hour thorough analysis of existing patents and publications using comprehensive public and private database tools
             </Typography>
           </Paper>
         </Grid>
@@ -66,15 +67,20 @@ const LandingPage = () => {
           can be made, used, or sold without infringing valid intellectual property rights of others.
         </Typography>
         <Typography paragraph>
-          We conduct thorough searches across multiple patent databases and analyze relevant patents
-          to provide you with a clear understanding of the patent landscape around your invention.
+          We conduct thorough searches across multiple patent databases including Google Patents, Google Scholar, 
+          and specialized patent databases. Our comprehensive search covers both public published information 
+          and patent documents to provide you with a clear understanding of the patent landscape around your invention.
+        </Typography>
+        <Typography paragraph>
+          Each search typically takes 4-8 hours to complete, ensuring a thorough analysis of all relevant documents
+          and potential conflicts.
         </Typography>
         <Box sx={{ mt: 3 }}>
           <Typography variant="h6" gutterBottom>
             What's Included:
           </Typography>
           <ul>
-            <Typography component="li">Comprehensive patent database search</Typography>
+            <Typography component="li">Comprehensive search across public and private patent databases</Typography>
             <Typography component="li">Analysis of up to 6 key features</Typography>
             <Typography component="li">Detailed report of potential conflicts</Typography>
             <Typography component="li">Recommendations for proceeding</Typography>
@@ -126,25 +132,134 @@ const LandingPage = () => {
         </Box>
       </Paper>
 
-      {/* Pricing Section */}
-      <Paper sx={{ p: 4, mb: 8, textAlign: 'center' }}>
+      {/* Detailed Product Features */}
+      <Paper sx={{ p: 4, mb: 8 }}>
         <Typography variant="h4" gutterBottom>
-          Simple, Transparent Pricing
+          Comprehensive Search Package
         </Typography>
-        <Typography variant="h3" component="div" sx={{ color: 'primary.main', my: 3 }}>
-          $500
-        </Typography>
-        <Typography variant="h6" color="text.secondary" gutterBottom>
-          Flat rate for inventions with up to 6 features
-        </Typography>
-        <Button
-          variant="contained"
-          size="large"
-          onClick={() => navigate('/submit')}
-          sx={{ mt: 3 }}
-        >
-          Get Started Now
-        </Button>
+        <Grid container spacing={2} sx={{ mb: 4 }}>
+          <Grid item xs={12} md={6}>
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
+              <CheckCircleIcon sx={{ color: 'success.main', mr: 1, mt: 0.5 }} />
+              <Typography>
+                <strong>Detailed Citations:</strong> Complete references to relevant patents and publications
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
+              <CheckCircleIcon sx={{ color: 'success.main', mr: 1, mt: 0.5 }} />
+              <Typography>
+                <strong>Machine Translations:</strong> Automatic translation of foreign patents
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
+              <CheckCircleIcon sx={{ color: 'success.main', mr: 1, mt: 0.5 }} />
+              <Typography>
+                <strong>Expert Analysis:</strong> Detailed observations and recommendations
+              </Typography>
+            </Box>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
+              <CheckCircleIcon sx={{ color: 'success.main', mr: 1, mt: 0.5 }} />
+              <Typography>
+                <strong>Feature Mapping:</strong> Clear correlation between your features and found art
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
+              <CheckCircleIcon sx={{ color: 'success.main', mr: 1, mt: 0.5 }} />
+              <Typography>
+                <strong>Search Strategy:</strong> Documented search methodology and keywords
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
+              <CheckCircleIcon sx={{ color: 'success.main', mr: 1, mt: 0.5 }} />
+              <Typography>
+                <strong>Risk Assessment:</strong> Clear evaluation of potential conflicts
+              </Typography>
+            </Box>
+          </Grid>
+        </Grid>
+      </Paper>
+
+      {/* Pricing Section */}
+      <Paper sx={{ p: 4, mb: 8 }}>
+        <Box sx={{ textAlign: 'center' }}>
+          <Typography variant="h4" gutterBottom>
+            Simple, Transparent Pricing
+          </Typography>
+          <Box sx={{ 
+            bgcolor: 'success.light', 
+            p: 3, 
+            borderRadius: 2,
+            mt: 3,
+            mb: 4,
+            display: 'inline-block',
+            minWidth: '300px',
+            transition: 'transform 0.2s ease-in-out',
+            '&:hover': {
+              transform: 'scale(1.05)',
+              cursor: 'pointer'
+            }
+          }}>
+            <Typography variant="h3" component="div" sx={{ color: 'white' }}>
+              $500
+            </Typography>
+            <Typography variant="h6" sx={{ color: 'white' }} gutterBottom>
+              Flat Rate Package
+            </Typography>
+          </Box>
+        </Box>
+        
+        <Grid container spacing={2} justifyContent="center" sx={{ mb: 3 }}>
+          <Grid item xs={12} sm={6} md={4}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+              <CheckCircleIcon sx={{ color: 'success.main', mr: 1 }} />
+              <Typography>Up to 6 key features</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+              <CheckCircleIcon sx={{ color: 'success.main', mr: 1 }} />
+              <Typography>4-8 hour thorough analysis</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+              <CheckCircleIcon sx={{ color: 'success.main', mr: 1 }} />
+              <Typography>Comprehensive report</Typography>
+            </Box>
+          </Grid>
+          <Grid item xs={12} sm={6} md={4}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+              <CheckCircleIcon sx={{ color: 'success.main', mr: 1 }} />
+              <Typography>Machine translations included</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+              <CheckCircleIcon sx={{ color: 'success.main', mr: 1 }} />
+              <Typography>Feature-by-feature analysis</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+              <CheckCircleIcon sx={{ color: 'success.main', mr: 1 }} />
+              <Typography>Risk assessment included</Typography>
+            </Box>
+          </Grid>
+        </Grid>
+
+        <Box sx={{ textAlign: 'center', mt: 4 }}>
+          <Typography color="text.secondary" sx={{ mb: 3 }}>
+            * For larger projects (more than 6 features), please visit our <Button 
+              color="primary"
+              onClick={() => navigate('/contact')}
+              sx={{ textTransform: 'none', p: 0, minWidth: 'auto', verticalAlign: 'baseline' }}
+            >
+              Contact page
+            </Button> for custom pricing.
+          </Typography>
+          <Button
+            variant="contained"
+            size="large"
+            onClick={() => navigate('/submit')}
+            sx={{ mt: 2 }}
+          >
+            Get Started Now
+          </Button>
+        </Box>
       </Paper>
     </Box>
   );
