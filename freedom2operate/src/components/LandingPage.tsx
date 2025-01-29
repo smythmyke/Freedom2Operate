@@ -75,45 +75,68 @@ const LandingPage = () => {
         </Grid>
         <Grid item xs={12} md={4}>
           <Paper 
-            elevation={3}
+            elevation={6}
             sx={{ 
               p: 3, 
               height: '100%', 
               textAlign: 'center',
               backgroundColor: 'background.paper',
               borderRadius: 2,
+              position: 'relative',
               transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
               '&:hover': {
                 transform: 'translateY(-12px)',
-                boxShadow: '0 12px 28px rgba(0,0,0,0.2)',
+                boxShadow: '0 12px 28px rgba(0,0,0,0.3)',
                 '& .MuiSvgIcon-root': {
                   transform: 'scale(1.2) rotate(5deg)',
                   color: 'primary.dark'
                 }
+              },
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                height: '4px',
+                background: '#FFD700',
+                borderRadius: '2px 2px 0 0'
               }
             }}
           >
             <AttachMoneyIcon 
               className="MuiSvgIcon-root"
               sx={{ 
-                fontSize: 48, 
+                fontSize: 56, 
                 color: 'primary.main', 
                 mb: 2,
                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
               }} 
             />
             <Typography 
-              variant="h6" 
+              variant="h5" 
               gutterBottom 
               sx={{ 
-                fontWeight: 600,
-                color: 'text.primary'
+                fontWeight: 700,
+                color: 'text.primary',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
               }}
             >
               Flat Rate Pricing
             </Typography>
+            <Typography 
+              variant="h4" 
+              sx={{ 
+                fontWeight: 700,
+                color: 'primary.main',
+                mb: 1
+              }}
+            >
+              $500
+            </Typography>
             <Typography color="text.secondary">
-              $500 flat rate for inventions with up to 6 key features
+              For inventions with up to 6 key features
             </Typography>
           </Paper>
         </Grid>
