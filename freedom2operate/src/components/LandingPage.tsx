@@ -23,20 +23,93 @@ const LandingPage = () => {
       {/* Features Section */}
       <Grid container spacing={4} sx={{ mb: 8 }}>
         <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 3, height: '100%', textAlign: 'center' }}>
-            <SearchIcon sx={{ fontSize: 40, color: 'primary.main', mb: 2 }} />
-            <Typography variant="h6" gutterBottom>
+          <Paper 
+            elevation={3}
+            sx={{ 
+              p: 3, 
+              height: '100%', 
+              textAlign: 'center',
+              backgroundColor: 'background.paper',
+              borderRadius: 2,
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              '&:hover': {
+                transform: 'translateY(-12px)',
+                boxShadow: '0 12px 28px rgba(0,0,0,0.2)',
+                '& .MuiSvgIcon-root': {
+                  transform: 'scale(1.2) rotate(5deg)',
+                  color: 'primary.dark'
+                }
+              }
+            }}
+          >
+            <SearchIcon 
+              className="MuiSvgIcon-root"
+              sx={{ 
+                fontSize: 48, 
+                color: 'primary.main', 
+                mb: 2,
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+              }} 
+            />
+            <Typography 
+              variant="h6" 
+              gutterBottom 
+              sx={{ 
+                fontWeight: 700,
+                color: 'text.primary',
+                transition: 'color 0.3s ease-in-out',
+                mb: 2
+              }}
+            >
               Comprehensive Search
             </Typography>
-            <Typography color="text.secondary">
+            <Typography 
+              color="text.secondary"
+              sx={{
+                transition: 'color 0.3s ease-in-out'
+              }}
+            >
               4-8 hour thorough analysis of existing patents and publications using comprehensive public and private database tools
             </Typography>
           </Paper>
         </Grid>
         <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 3, height: '100%', textAlign: 'center' }}>
-            <AttachMoneyIcon sx={{ fontSize: 40, color: 'primary.main', mb: 2 }} />
-            <Typography variant="h6" gutterBottom>
+          <Paper 
+            elevation={3}
+            sx={{ 
+              p: 3, 
+              height: '100%', 
+              textAlign: 'center',
+              backgroundColor: 'background.paper',
+              borderRadius: 2,
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              '&:hover': {
+                transform: 'translateY(-12px)',
+                boxShadow: '0 12px 28px rgba(0,0,0,0.2)',
+                '& .MuiSvgIcon-root': {
+                  transform: 'scale(1.2) rotate(5deg)',
+                  color: 'primary.dark'
+                }
+              }
+            }}
+          >
+            <AttachMoneyIcon 
+              className="MuiSvgIcon-root"
+              sx={{ 
+                fontSize: 48, 
+                color: 'primary.main', 
+                mb: 2,
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+              }} 
+            />
+            <Typography 
+              variant="h6" 
+              gutterBottom 
+              sx={{ 
+                fontWeight: 600,
+                color: 'text.primary'
+              }}
+            >
               Flat Rate Pricing
             </Typography>
             <Typography color="text.secondary">
@@ -45,9 +118,42 @@ const LandingPage = () => {
           </Paper>
         </Grid>
         <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 3, height: '100%', textAlign: 'center' }}>
-            <SecurityIcon sx={{ fontSize: 40, color: 'primary.main', mb: 2 }} />
-            <Typography variant="h6" gutterBottom>
+          <Paper 
+            elevation={3}
+            sx={{ 
+              p: 3, 
+              height: '100%', 
+              textAlign: 'center',
+              backgroundColor: 'background.paper',
+              borderRadius: 2,
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              '&:hover': {
+                transform: 'translateY(-12px)',
+                boxShadow: '0 12px 28px rgba(0,0,0,0.2)',
+                '& .MuiSvgIcon-root': {
+                  transform: 'scale(1.2) rotate(5deg)',
+                  color: 'primary.dark'
+                }
+              }
+            }}
+          >
+            <SecurityIcon 
+              className="MuiSvgIcon-root"
+              sx={{ 
+                fontSize: 48, 
+                color: 'primary.main', 
+                mb: 2,
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+              }} 
+            />
+            <Typography 
+              variant="h6" 
+              gutterBottom 
+              sx={{ 
+                fontWeight: 600,
+                color: 'text.primary'
+              }}
+            >
               Confidential Analysis
             </Typography>
             <Typography color="text.secondary">
