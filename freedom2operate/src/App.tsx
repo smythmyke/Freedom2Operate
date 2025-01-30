@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import './App.css';
 import { Box, Container, CssBaseline, ThemeProvider, createTheme } from '@mui/material';
 import { AuthProvider } from './contexts/AuthContext';
 import Navbar from './components/Navbar';
@@ -21,6 +22,14 @@ const theme = createTheme({
     secondary: {
       main: '#dc004e',
     },
+  },
+  typography: {
+    h1: { color: '#1a237e' },
+    h2: { color: '#1a237e' },
+    h3: { color: '#1a237e' },
+    h4: { color: '#1a237e' },
+    h5: { color: '#1a237e' },
+    h6: { color: '#1a237e' },
   },
 });
 
