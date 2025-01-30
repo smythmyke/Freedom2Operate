@@ -1,8 +1,8 @@
-import { AppBar, Toolbar, Typography, Button, Box, Menu, MenuItem } from '@mui/material';
+import { AppBar, Toolbar, Button, Box, Menu, MenuItem } from '@mui/material';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import logo from '../assets/logo1.png';
+import Logo from './Logo';
 
 const Navbar = () => {
   const { currentUser, logout } = useAuth();
@@ -31,7 +31,6 @@ const Navbar = () => {
     <AppBar position="static">
       <Toolbar>
         <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}>
-          <img src={logo} alt="Freedom2Operate Logo" style={{ height: '40px', marginRight: '16px' }} />
           <Box
             component={RouterLink}
             to="/"
@@ -42,34 +41,7 @@ const Navbar = () => {
               alignItems: 'center',
             }}
           >
-            <Typography
-              sx={{
-                fontFamily: 'Roboto Slab, serif',
-                fontWeight: 500,
-              }}
-            >
-              Freedom
-            </Typography>
-            <Typography
-              sx={{
-                color: '#ff4444',
-                fontSize: '2em',
-                fontWeight: 900,
-                mx: 0.5,
-                lineHeight: 0.8,
-                transform: 'translateY(2px)',
-              }}
-            >
-              2
-            </Typography>
-            <Typography
-              sx={{
-                fontFamily: 'Montserrat, sans-serif',
-                fontWeight: 600,
-              }}
-            >
-              Operate
-            </Typography>
+            <Logo variant="h5" color="white" />
           </Box>
         </Box>
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>

@@ -1,4 +1,5 @@
 import { Box, Typography, Button, Paper, Grid } from '@mui/material';
+import Logo from '../components/Logo';
 import { useNavigate } from 'react-router-dom';
 import SearchIcon from '@mui/icons-material/Search';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
@@ -12,41 +13,8 @@ const LandingPage = () => {
     <Box sx={{ maxWidth: '100%', px: { xs: 2, sm: 4, md: 6 } }}>
       {/* Hero Section */}
       <Box sx={{ textAlign: 'center', mb: 8 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2 }}>
-          <Typography
-            variant="h3"
-            component="span"
-            sx={{
-              fontFamily: 'Roboto Slab, serif',
-              fontWeight: 500,
-            }}
-          >
-            Freedom
-          </Typography>
-          <Typography
-            variant="h3"
-            component="span"
-            sx={{
-              color: '#ff4444',
-              fontSize: '2.5em',
-              fontWeight: 900,
-              mx: 0.5,
-              lineHeight: 0.8,
-              transform: 'translateY(4px)',
-            }}
-          >
-            2
-          </Typography>
-          <Typography
-            variant="h3"
-            component="span"
-            sx={{
-              fontFamily: 'Montserrat, sans-serif',
-              fontWeight: 600,
-            }}
-          >
-            Operate
-          </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+          <Logo variant="h3" />
         </Box>
         <Typography
           variant="h4"
