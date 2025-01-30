@@ -1,170 +1,67 @@
-import { Box, Typography, Paper, Grid, Avatar } from '@mui/material';
-import VerifiedIcon from '@mui/icons-material/Verified';
-import TimerIcon from '@mui/icons-material/Timer';
-import SecurityIcon from '@mui/icons-material/Security';
+import { Container, Typography, Paper, Box } from '@mui/material';
+import TextLogo from './TextLogo';
 
 const AboutPage = () => {
   return (
-    <Box sx={{ maxWidth: '100%', px: { xs: 2, sm: 4, md: 6 }, py: 4 }}>
-      <Typography variant="h3" component="h1" gutterBottom sx={{ textAlign: 'center', fontWeight: 700 }}>
-        About Us
-      </Typography>
-
-      {/* Mission Statement */}
-      <Paper sx={{ p: 4, mb: 6 }}>
-        <Typography variant="h4" gutterBottom>
-          Our Mission
-        </Typography>
-        <Typography paragraph>
-          At Freedom2Operate, our mission is to provide inventors and businesses with comprehensive, 
-          reliable patent search services that enable informed decision-making in their innovation journey.
-          We believe in making professional patent analysis accessible and transparent.
-        </Typography>
-      </Paper>
-
-      {/* Core Values */}
-      <Grid container spacing={4} sx={{ mb: 6 }}>
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 3, height: '100%', textAlign: 'center' }}>
-            <VerifiedIcon sx={{ fontSize: 40, color: 'primary.main', mb: 2 }} />
-            <Typography variant="h6" gutterBottom>
-              Accuracy
-            </Typography>
-            <Typography color="text.secondary">
-              We maintain the highest standards of precision in our patent searches and analyses
-            </Typography>
-          </Paper>
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 3, height: '100%', textAlign: 'center' }}>
-            <TimerIcon sx={{ fontSize: 40, color: 'primary.main', mb: 2 }} />
-            <Typography variant="h6" gutterBottom>
-              Efficiency
-            </Typography>
-            <Typography color="text.secondary">
-              Quick turnaround times without compromising on quality
-            </Typography>
-          </Paper>
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 3, height: '100%', textAlign: 'center' }}>
-            <SecurityIcon sx={{ fontSize: 40, color: 'primary.main', mb: 2 }} />
-            <Typography variant="h6" gutterBottom>
-              Confidentiality
-            </Typography>
-            <Typography color="text.secondary">
-              Your intellectual property is protected with enterprise-grade security
-            </Typography>
-          </Paper>
-        </Grid>
-      </Grid>
-
-      {/* Team Section */}
-      <Paper sx={{ p: 4, mb: 6 }}>
-        <Typography variant="h4" gutterBottom sx={{ mb: 4 }}>
-          Our Team
-        </Typography>
-        <Grid container spacing={4}>
-          <Grid item xs={12} md={4}>
-            <Box sx={{ textAlign: 'center' }}>
-              <Avatar
-                sx={{ 
-                  width: 120, 
-                  height: 120, 
-                  mx: 'auto', 
-                  mb: 2,
-                  bgcolor: 'primary.main'
-                }}
-              >
-                MS
-              </Avatar>
-              <Typography variant="h6" gutterBottom>
-                Michael Smith
-              </Typography>
-              <Typography color="text.secondary" gutterBottom>
-                Lead Patent Analyst
-              </Typography>
-              <Typography variant="body2" sx={{ mb: 1 }}>
-                5 years experience in patent analysis and prosecution
-              </Typography>
-              <Typography variant="body2" sx={{ mb: 1 }}>
-                Mechanical Engineer, OU 2008
-              </Typography>
-              <Typography variant="body2">
-                Tomahawk AUR Engineer, NSWC PHD (8 years)
-              </Typography>
-            </Box>
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <Box sx={{ textAlign: 'center' }}>
-              <Avatar
-                sx={{ 
-                  width: 120, 
-                  height: 120, 
-                  mx: 'auto', 
-                  mb: 2,
-                  bgcolor: 'primary.main'
-                }}
-              >
-                EJ
-              </Avatar>
-              <Typography variant="h6" gutterBottom>
-                Emily Johnson
-              </Typography>
-              <Typography color="text.secondary" gutterBottom>
-                Technical Director
-              </Typography>
-              <Typography variant="body2">
-                Expert in electrical engineering and software patents
-              </Typography>
-            </Box>
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <Box sx={{ textAlign: 'center' }}>
-              <Avatar
-                sx={{ 
-                  width: 120, 
-                  height: 120, 
-                  mx: 'auto', 
-                  mb: 2,
-                  bgcolor: 'primary.main'
-                }}
-              >
-                RD
-              </Avatar>
-              <Typography variant="h6" gutterBottom>
-                Robert Davis
-              </Typography>
-              <Typography color="text.secondary" gutterBottom>
-                Mechanical Patent Specialist
-              </Typography>
-              <Typography variant="body2">
-                Specialized in mechanical and manufacturing patents
-              </Typography>
-            </Box>
-          </Grid>
-        </Grid>
-      </Paper>
-
-      {/* Company History */}
+    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
       <Paper sx={{ p: 4 }}>
-        <Typography variant="h4" gutterBottom>
-          Our History
+        <Typography variant="h4" component="h1" gutterBottom sx={{ color: 'primary.main' }}>
+          About Us
         </Typography>
         <Typography paragraph>
-          Founded in 2020, Freedom2Operate emerged from the recognition that many inventors 
+          At <TextLogo />, our mission is to provide inventors and businesses with comprehensive,
+          reliable patent search services that enable informed decision-making in their innovation journey.
+        </Typography>
+        <Typography paragraph>
+          Founded in 2020, <TextLogo /> emerged from the recognition that many inventors
           and small businesses struggle to access professional patent search services at reasonable costs.
-          Our team of experienced patent professionals came together with a shared vision of making 
-          high-quality patent analysis more accessible.
+          Our team of experienced patent professionals saw an opportunity to make these essential services
+          more accessible while maintaining the highest standards of quality and thoroughness.
         </Typography>
         <Typography paragraph>
-          Since our inception, we have helped hundreds of clients navigate the complex landscape of 
-          patent rights, enabling them to make informed decisions about their innovations and business strategies.
-          Our commitment to excellence and client satisfaction has made us a trusted partner in the 
-          intellectual property community.
+          We understand that navigating the patent landscape can be complex and time-consuming.
+          That's why we've developed a streamlined process that combines advanced search technologies
+          with expert analysis to provide you with clear, actionable insights about your invention's
+          patentability and freedom to operate status.
         </Typography>
+        <Box sx={{ mt: 4 }}>
+          <Typography variant="h5" gutterBottom sx={{ color: 'primary.main' }}>
+            Our Values
+          </Typography>
+          <Typography paragraph>
+            <strong>Accessibility:</strong> We believe that quality patent search services should be
+            accessible to inventors and businesses of all sizes. Our flat-rate pricing model ensures
+            transparency and predictability in your innovation budget.
+          </Typography>
+          <Typography paragraph>
+            <strong>Thoroughness:</strong> Every search we conduct is comprehensive and meticulous.
+            We leave no stone unturned in our quest to provide you with a complete picture of the
+            relevant patent landscape.
+          </Typography>
+          <Typography paragraph>
+            <strong>Expertise:</strong> Our team brings years of experience in patent analysis and
+            prosecution. We combine technical knowledge with patent expertise to deliver insights
+            that matter to your innovation journey.
+          </Typography>
+          <Typography paragraph>
+            <strong>Clarity:</strong> We believe in clear communication. Our reports are detailed
+            yet accessible, providing you with the information you need to make informed decisions
+            about your intellectual property strategy.
+          </Typography>
+        </Box>
+        <Box sx={{ mt: 4 }}>
+          <Typography variant="h5" gutterBottom sx={{ color: 'primary.main' }}>
+            Our Commitment
+          </Typography>
+          <Typography paragraph>
+            We are committed to supporting innovation by providing reliable, professional patent
+            search services that help inventors and businesses make informed decisions about their
+            intellectual property. Whether you're a solo inventor, startup, or established business,
+            we're here to help you navigate the patent landscape with confidence.
+          </Typography>
+        </Box>
       </Paper>
-    </Box>
+    </Container>
   );
 };
 

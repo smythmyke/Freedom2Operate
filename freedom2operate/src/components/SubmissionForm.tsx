@@ -25,6 +25,7 @@ import { generateReferenceNumber } from '../utils/referenceNumber';
 import { generateSubmissionPDF } from '../utils/pdfGenerator';
 import { sendSubmissionEmail, sendAdminNotification } from '../utils/emailService';
 import PaymentStep from './PaymentStep';
+import TextLogo from './TextLogo';
 
 const steps = ['Basic Information', 'Invention Details', 'Supporting Documents', 'Review', 'Payment'];
 
@@ -251,7 +252,7 @@ const SubmissionForm = () => {
                   onClick={() => setSearchType('fto')}
                   sx={{ mr: 2 }}
                 >
-                  Freedom2Operate
+                  <TextLogo />
                 </Button>
                 <Button
                   variant={searchType === 'patentability' ? 'contained' : 'outlined'}

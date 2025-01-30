@@ -21,8 +21,8 @@ export const sendSubmissionEmail = async (data: EmailData): Promise<void> => {
     subject: `Freedom2Operate Search Request - ${projectName}`,
     text: `Thank you for submitting your Freedom2Operate search request.\n\nProject: ${projectName}\nReference Number: ${referenceNumber}\n\nWe have attached a PDF copy of your submission for your records.\n\nOur team will review your submission and contact you soon.`,
     html: `
-      <h2>Freedom2Operate Search Request</h2>
-      <p>Thank you for submitting your Freedom2Operate search request.</p>
+      <h2 style="color: #1a237e">Freedom<span style="color: #ff4444; font-size: 1.2em; font-weight: 900">2</span>Operate Search Request</h2>
+      <p>Thank you for submitting your Freedom<span style="color: #ff4444; font-size: 1.2em; font-weight: 900">2</span>Operate search request.</p>
       <p><strong>Project:</strong> ${projectName}<br>
       <strong>Reference Number:</strong> ${referenceNumber}</p>
       <p>We have attached a PDF copy of your submission for your records.</p>
@@ -58,7 +58,7 @@ export const sendAdminNotification = async (projectData: {
     from: process.env.REACT_APP_SENDER_EMAIL || 'noreply@freedom2operate.com',
     subject: `New FTO Search Request - ${projectData.projectName}`,
     text: `
-      New Freedom2Operate search request received.
+      New Freedom<span style="color: #ff4444; font-size: 1.2em; font-weight: 900">2</span>Operate search request received.
       
       Project Name: ${projectData.projectName}
       Reference Number: ${projectData.referenceNumber}
@@ -68,7 +68,7 @@ export const sendAdminNotification = async (projectData: {
       Please log in to the admin dashboard to review the full submission.
     `,
     html: `
-      <h2>New Freedom2Operate Search Request</h2>
+      <h2 style="color: #1a237e">New Freedom<span style="color: #ff4444; font-size: 1.2em; font-weight: 900">2</span>Operate Search Request</h2>
       <p>A new search request has been received.</p>
       <p>
         <strong>Project Name:</strong> ${projectData.projectName}<br>

@@ -1,5 +1,6 @@
 import { Box, Container, Link, Typography } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
+import TextLogo from './TextLogo';
 
 const Footer = () => {
   return (
@@ -68,7 +69,7 @@ const Footer = () => {
           align="center"
           sx={{ mt: 2 }}
         >
-          © {new Date().getFullYear()} Freedom2Operate. All rights reserved.
+          © {new Date().getFullYear()} <TextLogo />. All rights reserved.
         </Typography>
       </Container>
     </Box>

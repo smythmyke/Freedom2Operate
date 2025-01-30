@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
 import { Box, Typography, Alert } from '@mui/material';
+import TextLogo from './TextLogo';
 
 interface PayPalPaymentDetails {
   id: string;
@@ -36,12 +37,14 @@ const PaymentStep = ({ amount, onSuccess, onError }: PaymentStepProps) => {
 
   return (
     <Box sx={{ maxWidth: 600, mx: 'auto', p: 2 }}>
-      <Typography variant="h6" gutterBottom align="center">
-        Payment Details
-      </Typography>
-      <Typography variant="body1" gutterBottom align="center" sx={{ mb: 3 }}>
-        Total Amount: ${amount}
-      </Typography>
+      <Box sx={{ textAlign: 'center', mb: 3 }}>
+        <Typography variant="h6" gutterBottom>
+          <TextLogo /> Search Service
+        </Typography>
+        <Typography variant="body1">
+          Total Amount: ${amount}
+        </Typography>
+      </Box>
       
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>

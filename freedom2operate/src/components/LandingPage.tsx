@@ -400,7 +400,7 @@ const LandingPage = () => {
       <Paper sx={{ p: 4, mb: 8 }}>
         <Box sx={{ textAlign: 'center' }}>
           <Typography variant="h4" gutterBottom>
-            Simple, Transparent Pricing
+            Simple, Transparent, and Streamlined
           </Typography>
           <Box sx={{ 
             bgcolor: 'success.light', 

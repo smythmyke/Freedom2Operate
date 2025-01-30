@@ -39,7 +39,19 @@ export const generateSubmissionPDF = (formData: FormData): jsPDF => {
 
   // Title
   doc.setFontSize(20);
-  doc.text('Freedom2Operate Search Request', margin, yPos);
+  // Title with styled "2"
+  const title = 'Freedom';
+  const titleWidth = doc.getStringUnitWidth(title) * doc.getFontSize() / doc.internal.scaleFactor;
+  doc.text(title, margin, yPos);
+  
+  doc.setTextColor(255, 68, 68); // #ff4444
+  doc.setFontSize(24); // Larger font for "2"
+  doc.text('2', margin + titleWidth + 1, yPos);
+  
+  doc.setTextColor(0, 0, 0); // Reset to black
+  doc.setFontSize(20); // Reset font size
+  const operate = 'Operate Search Request';
+  doc.text(operate, margin + titleWidth + 8, yPos);
   yPos += lineHeight * 2;
 
   // Basic Information
