@@ -16,6 +16,7 @@ service cloud.firestore {
             .hasOnly(['displayName', 'phone', 'company', 'lastLoginAt']);
       allow delete: if false;
     }
+
     match /submissions/{submissionId} {
       // Allow users to read their own submissions
       allow read: if request.auth != null && resource.data.userId == request.auth.uid;
@@ -27,6 +28,42 @@ service cloud.firestore {
       
       // Prevent updates and deletes
       allow update, delete: if false;
+    }
+
+    match /payments/{paymentId} {
+      // Allow users to read their own payments
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      
+      // Allow payment creation with required fields
+      allow create: if request.auth != null 
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.keys().hasAll(['amount', 'status', 'createdAt', 'submissionId']);
+      
+      // Allow updates only to specific fields
+      allow update: if request.auth != null 
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'updatedAt']);
+      
+      allow delete: if false;
+    }
+
+    match /progress/{progressId} {
+      // Allow users to read their submission progress
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      
+      // Allow progress creation with required fields
+      allow create: if request.auth != null 
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.keys().hasAll(['submissionId', 'status', 'createdAt', 'currentStep']);
+      
+      // Allow updates to progress tracking fields
+      allow update: if request.auth != null 
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'currentStep', 'updatedAt', 'notes']);
+      
+      allow delete: if false;
     }
   }
 }
