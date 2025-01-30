@@ -12,8 +12,52 @@ const LandingPage = () => {
     <Box sx={{ maxWidth: '100%', px: { xs: 2, sm: 4, md: 6 } }}>
       {/* Hero Section */}
       <Box sx={{ textAlign: 'center', mb: 8 }}>
-        <Typography variant="h3" component="h1" gutterBottom sx={{ fontWeight: 700 }}>
-          Freedom to Operate Patent Search
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2 }}>
+          <Typography
+            variant="h3"
+            component="span"
+            sx={{
+              fontFamily: 'Roboto Slab, serif',
+              fontWeight: 500,
+            }}
+          >
+            Freedom
+          </Typography>
+          <Typography
+            variant="h3"
+            component="span"
+            sx={{
+              color: '#ff4444',
+              fontSize: '2.5em',
+              fontWeight: 900,
+              mx: 0.5,
+              lineHeight: 0.8,
+              transform: 'translateY(4px)',
+            }}
+          >
+            2
+          </Typography>
+          <Typography
+            variant="h3"
+            component="span"
+            sx={{
+              fontFamily: 'Montserrat, sans-serif',
+              fontWeight: 600,
+            }}
+          >
+            Operate
+          </Typography>
+        </Box>
+        <Typography
+          variant="h4"
+          component="h2"
+          gutterBottom
+          sx={{
+            fontWeight: 500,
+            color: 'text.secondary',
+          }}
+        >
+          Patent Search
         </Typography>
         <Typography variant="h5" color="text.secondary" paragraph>
           Professional patent search services to help protect your innovations
@@ -135,9 +179,20 @@ const LandingPage = () => {
             >
               $500
             </Typography>
-            <Typography color="text.secondary">
+            <Typography color="text.secondary" sx={{ mb: 2 }}>
               For inventions with up to 6 key features
             </Typography>
+            <Button
+              variant="contained"
+              size="large"
+              onClick={() => navigate('/submit')}
+              sx={{
+                width: '80%',
+                py: 1.5
+              }}
+            >
+              Get Started
+            </Button>
           </Paper>
         </Grid>
         <Grid item xs={12} md={4}>
@@ -215,6 +270,47 @@ const LandingPage = () => {
             <Typography component="li">Recommendations for proceeding</Typography>
           </ul>
         </Box>
+      </Paper>
+
+      {/* What is FTO Section */}
+      <Paper sx={{ p: 4, mb: 8 }}>
+        <Typography variant="h4" gutterBottom>
+          What is a Freedom to Operate Search?
+        </Typography>
+        <Typography paragraph>
+          A Freedom to Operate (FTO) search, also known as a clearance search, is a comprehensive analysis to determine whether 
+          your product or technology can be commercially used without infringing valid intellectual property rights of others, 
+          particularly patents.
+        </Typography>
+        <Grid container spacing={4} sx={{ mt: 2 }}>
+          <Grid item xs={12} md={4}>
+            <Typography variant="h6" gutterBottom sx={{ color: 'primary.main' }}>
+              What We Search For
+            </Typography>
+            <Typography paragraph>
+              We examine active patents, pending applications, and published literature that could potentially block your ability 
+              to make, use, or sell your invention in your target market.
+            </Typography>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <Typography variant="h6" gutterBottom sx={{ color: 'primary.main' }}>
+              Why It's Important
+            </Typography>
+            <Typography paragraph>
+              An FTO search helps prevent costly patent infringement disputes by identifying potential obstacles before significant 
+              investments are made in product development or market launch.
+            </Typography>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <Typography variant="h6" gutterBottom sx={{ color: 'primary.main' }}>
+              When to Conduct
+            </Typography>
+            <Typography paragraph>
+              Ideally performed early in product development, before major investments, when entering new markets, or before 
+              product launch to minimize risks and ensure freedom to commercialize.
+            </Typography>
+          </Grid>
+        </Grid>
       </Paper>
 
       {/* Security Section */}
