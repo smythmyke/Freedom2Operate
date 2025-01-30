@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { FirebaseError } from 'firebase/app';
 import { 
   User,
   createUserWithEmailAndPassword,
@@ -49,7 +50,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const fetchUserProfile = async (uid: string) => {
     try {
-      const userDoc = await doc(db, 'users', uid);
+      const userDoc = doc(db, 'users', uid);
       const docSnap = await getDoc(userDoc);
       if (docSnap.exists()) {
         setUserProfile(docSnap.data() as UserProfile);
@@ -59,7 +60,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  async function signup(email: string, password: string) {
+  const signup = async (email: string, password: string) => {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       // Store additional user data in Firestore
@@ -72,11 +73,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setUserProfile(userData);
     } catch (error) {
       console.error('Error signing up:', error);
+      if (error instanceof Error) {
+        const authError = error as FirebaseError;
+        console.error('Firebase error code:', authError.code);
+        console.error('Firebase error message:', authError.message);
+      }
       throw error;
     }
-  }
+  };
 
-  async function login(email: string, password: string) {
+  const login = async (email: string, password: string) => {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       // Update last login time
@@ -87,32 +93,38 @@ export function AuthProvider({ children }: AuthProviderProps) {
       await fetchUserProfile(userCredential.user.uid);
     } catch (error) {
       console.error('Error logging in:', error);
+      if (error instanceof Error) {
+        const authError = error as FirebaseError;
+        console.error('Firebase error code:', authError.code);
+        console.error('Firebase error message:', authError.message);
+      }
       throw error;
     }
-  }
+  };
 
-  async function updateProfile(data: Partial<UserProfile>) {
+  const updateProfile = async (profileData: Partial<UserProfile>) => {
     if (!currentUser) throw new Error('No authenticated user');
     try {
       const userRef = doc(db, 'users', currentUser.uid);
-      await updateDoc(userRef, data);
+      await updateDoc(userRef, profileData);
       if (userProfile) {
-        setUserProfile({ ...userProfile, ...data });
+        setUserProfile({ ...userProfile, ...profileData });
       }
     } catch (error) {
       console.error('Error updating profile:', error);
       throw error;
     }
-  }
+  };
 
-  async function logout() {
+  const logout = async () => {
     try {
       await signOut(auth);
+      setUserProfile(null);
     } catch (error) {
       console.error('Error logging out:', error);
       throw error;
     }
-  }
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -128,7 +140,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return unsubscribe;
   }, []);
 
-  const value = {
+  const value: AuthContextType = {
     currentUser,
     userProfile,
     signup,
