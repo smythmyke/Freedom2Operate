@@ -18,7 +18,7 @@ const TechnicalExpertisePage = () => {
         </Typography>
         <Typography paragraph>
           Our team brings extensive experience in patent analysis across various technical fields.
-          We specialize in conducting thorough Freedom to Operate (FTO) searches in the following
+          We specialize in conducting thorough Freedom 2 Operate (FTO) searches in the following
           areas of technology.
         </Typography>
       </Paper>

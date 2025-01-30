@@ -10,7 +10,12 @@ import {
   Box,
   Link,
   Alert,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
 } from '@mui/material';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 
 const Register = () => {
   const [email, setEmail] = useState('');
@@ -48,9 +53,61 @@ const Register = () => {
     <Container maxWidth="sm">
       <Box sx={{ mt: 8, mb: 4 }}>
         <Paper elevation={3} sx={{ p: 4 }}>
-          <Typography variant="h4" component="h1" gutterBottom align="center">
+          <Typography variant="h4" component="h1" gutterBottom align="center" sx={{ color: 'primary.main' }}>
             Register
           </Typography>
+          <Box sx={{ mb: 4 }}>
+            <Typography variant="h6" gutterBottom sx={{ color: 'text.secondary', mb: 2 }}>
+              Why Create an Account?
+            </Typography>
+            <List>
+              <ListItem>
+                <ListItemIcon>
+                  <CheckCircleOutlineIcon color="primary" />
+                </ListItemIcon>
+                <ListItemText 
+                  primary="Free Registration" 
+                  secondary="Creating an account is completely free of charge"
+                />
+              </ListItem>
+              <ListItem>
+                <ListItemIcon>
+                  <CheckCircleOutlineIcon color="primary" />
+                </ListItemIcon>
+                <ListItemText 
+                  primary="Project Tracking" 
+                  secondary="Keep track of all your current and previous projects in one place"
+                />
+              </ListItem>
+              <ListItem>
+                <ListItemIcon>
+                  <CheckCircleOutlineIcon color="primary" />
+                </ListItemIcon>
+                <ListItemText 
+                  primary="Payment Management" 
+                  secondary="Easily manage and track all your payments"
+                />
+              </ListItem>
+              <ListItem>
+                <ListItemIcon>
+                  <CheckCircleOutlineIcon color="primary" />
+                </ListItemIcon>
+                <ListItemText 
+                  primary="Progress Monitoring" 
+                  secondary="Follow the real-time progress of your ongoing projects"
+                />
+              </ListItem>
+              <ListItem>
+                <ListItemIcon>
+                  <CheckCircleOutlineIcon color="primary" />
+                </ListItemIcon>
+                <ListItemText 
+                  primary="Report History" 
+                  secondary="Access and review all your past reports anytime"
+                />
+              </ListItem>
+            </List>
+          </Box>
           {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
           <Box component="form" onSubmit={handleSubmit}>
             <TextField
@@ -61,7 +118,6 @@ const Register = () => {
               label="Email Address"
               name="email"
               autoComplete="email"
-              autoFocus
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />

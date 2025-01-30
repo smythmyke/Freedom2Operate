@@ -52,40 +52,35 @@ const PaymentStep = ({ amount, onSuccess, onError }: PaymentStepProps) => {
       <PayPalScriptProvider options={initialOptions}>
         <PayPalButtons
           style={{ layout: 'vertical' }}
-          createOrder={(_data: unknown, actions: { 
-            order: { 
-              create: (order: {
-                purchase_units: Array<{
-                  amount: {
-                    value: string;
-                    currency_code: string;
-                  };
-                  description: string;
-                }>;
-              }) => Promise<string> 
-            } 
-          }) => {
+          createOrder={(_data, actions) => {
             return actions.order.create({
+              intent: "CAPTURE",
               purchase_units: [
                 {
                   amount: {
                     value: amount.toString(),
                     currency_code: 'USD'
                   },
-                  description: 'Freedom to Operate Search Service'
+                  description: 'Freedom 2 Operate Search Service'
                 },
               ],
             });
           }}
-          onApprove={async (_data: unknown, actions: { order?: { capture: () => Promise<PayPalPaymentDetails> } }) => {
-            if (actions.order) {
-              const details = await actions.order.capture();
-              onSuccess(details);
+          onApprove={async (_data, actions) => {
+            try {
+              const details = await actions.order?.capture();
+              if (details) {
+                onSuccess(details as PayPalPaymentDetails);
+              }
+            } catch (error) {
+              console.error('Payment capture failed:', error);
+              setError('Payment capture failed. Please try again.');
+              onError(new Error('Payment capture failed'));
             }
           }}
-          onError={(err: Error) => {
+          onError={() => {
             setError('Payment failed. Please try again.');
-            onError(err);
+            onError(new Error('Payment failed'));
           }}
         />
       </PayPalScriptProvider>

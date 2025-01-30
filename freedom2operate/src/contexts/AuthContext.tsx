@@ -6,7 +6,8 @@ import {
   signOut,
   onAuthStateChanged
 } from 'firebase/auth';
-import { auth } from '../firebase';
+import { auth, db } from '../firebase';
+import { doc, setDoc } from 'firebase/firestore';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -36,7 +37,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   async function signup(email: string, password: string) {
     try {
-      await createUserWithEmailAndPassword(auth, email, password);
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      // Store additional user data in Firestore
+      await setDoc(doc(db, 'users', userCredential.user.uid), {
+        createdAt: new Date().toISOString(),
+      });
     } catch (error) {
       console.error('Error signing up:', error);
       throw error;

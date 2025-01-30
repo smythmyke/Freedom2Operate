@@ -2,6 +2,16 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    match /users/{userId} {
+      // Allow users to read and write their own document
+      allow read: if request.auth != null && userId == request.auth.uid;
+      // Allow creation only if the document ID matches the user's ID and contains required fields
+      allow create: if request.auth != null 
+        && userId == request.auth.uid
+        && request.resource.data.keys().hasAll(['createdAt']);
+      // Prevent updates and deletes for now
+      allow update, delete: if false;
+    }
     match /submissions/{submissionId} {
       // Allow users to read their own submissions
       allow read: if request.auth != null && resource.data.userId == request.auth.uid;

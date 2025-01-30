@@ -247,7 +247,7 @@ const LandingPage = () => {
           Our Services
         </Typography>
         <Typography paragraph>
-          Our Freedom to Operate (FTO) search service helps you understand whether your invention
+          Our Freedom 2 Operate (FTO) search service helps you understand whether your invention
           can be made, used, or sold without infringing valid intellectual property rights of others.
         </Typography>
         <Typography paragraph>
@@ -259,6 +259,27 @@ const LandingPage = () => {
           Each search typically takes 4-8 hours to complete, ensuring a thorough analysis of all relevant documents
           and potential conflicts.
         </Typography>
+        <Typography paragraph>
+          Our comprehensive analysis is delivered in a high-quality PDF report that includes:
+        </Typography>
+        <Box sx={{ ml: 2, mb: 2 }}>
+          <Typography paragraph>
+            • <strong>Primary Results:</strong> The closest and most relevant patents/publications that contain 
+            features matching your claims. These are carefully analyzed and presented with detailed explanations.
+          </Typography>
+          <Typography paragraph>
+            • <strong>Secondary Results:</strong> Additional findings that are less focused or relevant but still 
+            worth consideration in your freedom to operate analysis.
+          </Typography>
+          <Typography paragraph>
+            • <strong>Bibliographic Information:</strong> Complete reference details for each result, making it 
+            easy to track and verify sources.
+          </Typography>
+          <Typography paragraph>
+            • <strong>Feature Matching:</strong> Clear correlation between your invention's features and those 
+            found in the prior art, helping you understand potential conflicts.
+          </Typography>
+        </Box>
         <Box sx={{ mt: 3 }}>
           <Typography variant="h6" gutterBottom>
             What's Included:
@@ -275,10 +296,10 @@ const LandingPage = () => {
       {/* What is FTO Section */}
       <Paper sx={{ p: 4, mb: 8 }}>
         <Typography variant="h4" gutterBottom>
-          What is a Freedom to Operate Search?
+          What is a Freedom 2 Operate Search?
         </Typography>
         <Typography paragraph>
-          A Freedom to Operate (FTO) search, also known as a clearance search, is a comprehensive analysis to determine whether 
+          A Freedom 2 Operate (FTO) search, also known as a clearance search, is a comprehensive analysis to determine whether 
           your product or technology can be commercially used without infringing valid intellectual property rights of others, 
           particularly patents.
         </Typography>
