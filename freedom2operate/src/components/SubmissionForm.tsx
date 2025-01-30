@@ -251,7 +251,7 @@ const SubmissionForm = () => {
                   onClick={() => setSearchType('fto')}
                   sx={{ mr: 2 }}
                 >
-                  Freedom 2 Operate
+                  Freedom2Operate
                 </Button>
                 <Button
                   variant={searchType === 'patentability' ? 'contained' : 'outlined'}

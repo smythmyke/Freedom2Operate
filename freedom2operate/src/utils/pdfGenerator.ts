@@ -39,7 +39,7 @@ export const generateSubmissionPDF = (formData: FormData): jsPDF => {
 
   // Title
   doc.setFontSize(20);
-  doc.text('Freedom 2 Operate Search Request', margin, yPos);
+  doc.text('Freedom2Operate Search Request', margin, yPos);
   yPos += lineHeight * 2;
 
   // Basic Information

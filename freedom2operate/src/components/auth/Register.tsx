@@ -18,29 +18,56 @@ import {
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 
 const Register = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [passwordConfirm, setPasswordConfirm] = useState('');
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    passwordConfirm: '',
+    displayName: '',
+    company: '',
+    phone: ''
+  });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signup } = useAuth();
+  const { signup, updateProfile } = useAuth();
   const navigate = useNavigate();
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    if (name === 'phone') {
+      // Format phone number as (XXX) XXX-XXXX
+      const numbers = value.replace(/\D/g, '');
+      const truncated = numbers.slice(0, 10);
+      let formatted = truncated;
+      if (truncated.length > 0) formatted = '(' + formatted;
+      if (truncated.length > 3) formatted = formatted.slice(0, 4) + ') ' + formatted.slice(4);
+      if (truncated.length > 6) formatted = formatted.slice(0, 9) + '-' + formatted.slice(9);
+      setFormData(prev => ({ ...prev, [name]: formatted }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (password !== passwordConfirm) {
+    if (formData.password !== formData.passwordConfirm) {
       return setError('Passwords do not match');
     }
 
-    if (password.length < 6) {
+    if (formData.password.length < 6) {
       return setError('Password must be at least 6 characters');
     }
 
     try {
       setError('');
       setLoading(true);
-      await signup(email, password);
+      await signup(formData.email, formData.password);
+      // Update profile after signup
+      await updateProfile({
+        displayName: formData.displayName,
+        company: formData.company,
+        phone: formData.phone
+      });
       navigate('/dashboard');
     } catch {
       setError('Failed to create an account. Email may already be in use.');
@@ -114,12 +141,44 @@ const Register = () => {
               margin="normal"
               required
               fullWidth
+              id="displayName"
+              label="Full Name"
+              name="displayName"
+              autoComplete="name"
+              value={formData.displayName}
+              onChange={handleChange}
+            />
+            <TextField
+              margin="normal"
+              fullWidth
+              id="company"
+              label="Company Name"
+              name="company"
+              autoComplete="organization"
+              value={formData.company}
+              onChange={handleChange}
+            />
+            <TextField
+              margin="normal"
+              fullWidth
+              id="phone"
+              label="Phone Number"
+              name="phone"
+              autoComplete="tel"
+              value={formData.phone}
+              onChange={handleChange}
+              helperText="Format: (555) 555-5555"
+            />
+            <TextField
+              margin="normal"
+              required
+              fullWidth
               id="email"
               label="Email Address"
               name="email"
               autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={formData.email}
+              onChange={handleChange}
             />
             <TextField
               margin="normal"
@@ -130,20 +189,20 @@ const Register = () => {
               type="password"
               id="password"
               autoComplete="new-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              value={formData.password}
+              onChange={handleChange}
             />
             <TextField
               margin="normal"
               required
               fullWidth
-              name="password-confirm"
+              name="passwordConfirm"
               label="Confirm Password"
               type="password"
-              id="password-confirm"
+              id="passwordConfirm"
               autoComplete="new-password"
-              value={passwordConfirm}
-              onChange={(e) => setPasswordConfirm(e.target.value)}
+              value={formData.passwordConfirm}
+              onChange={handleChange}
             />
             <Button
               type="submit"

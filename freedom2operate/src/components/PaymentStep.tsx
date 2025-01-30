@@ -61,7 +61,7 @@ const PaymentStep = ({ amount, onSuccess, onError }: PaymentStepProps) => {
                     value: amount.toString(),
                     currency_code: 'USD'
                   },
-                  description: 'Freedom 2 Operate Search Service'
+                  description: 'Freedom2Operate Search Service'
                 },
               ],
             });

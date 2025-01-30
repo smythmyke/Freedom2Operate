@@ -1,5 +1,6 @@
 import { Box, Typography, Button, Paper, Grid } from '@mui/material';
 import Logo from '../components/Logo';
+import TextLogo from '../components/TextLogo';
 import { useNavigate } from 'react-router-dom';
 import SearchIcon from '@mui/icons-material/Search';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
@@ -215,7 +216,7 @@ const LandingPage = () => {
           Our Services
         </Typography>
         <Typography paragraph>
-          Our Freedom 2 Operate (FTO) search service helps you understand whether your invention
+          Our <TextLogo /> (FTO) search service helps you understand whether your invention
           can be made, used, or sold without infringing valid intellectual property rights of others.
         </Typography>
         <Typography paragraph>
@@ -264,10 +265,10 @@ const LandingPage = () => {
       {/* What is FTO Section */}
       <Paper sx={{ p: 4, mb: 8 }}>
         <Typography variant="h4" gutterBottom>
-          What is a Freedom 2 Operate Search?
+          What is a <TextLogo /> Search?
         </Typography>
         <Typography paragraph>
-          A Freedom 2 Operate (FTO) search, also known as a clearance search, is a comprehensive analysis to determine whether 
+          A <TextLogo /> (FTO) search, also known as a clearance search, is a comprehensive analysis to determine whether 
           your product or technology can be commercially used without infringing valid intellectual property rights of others, 
           particularly patents.
         </Typography>

@@ -7,13 +7,24 @@ import {
   onAuthStateChanged
 } from 'firebase/auth';
 import { auth, db } from '../firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
+
+interface UserProfile {
+  displayName?: string;
+  phone?: string;
+  company?: string;
+  email: string;
+  createdAt: string;
+  lastLoginAt?: string;
+}
 
 interface AuthContextType {
   currentUser: User | null;
+  userProfile: UserProfile | null;
   signup: (email: string, password: string) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  updateProfile: (data: Partial<UserProfile>) => Promise<void>;
   loading: boolean;
 }
 
@@ -33,15 +44,32 @@ interface AuthProviderProps {
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const fetchUserProfile = async (uid: string) => {
+    try {
+      const userDoc = await doc(db, 'users', uid);
+      const docSnap = await getDoc(userDoc);
+      if (docSnap.exists()) {
+        setUserProfile(docSnap.data() as UserProfile);
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+    }
+  };
 
   async function signup(email: string, password: string) {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       // Store additional user data in Firestore
-      await setDoc(doc(db, 'users', userCredential.user.uid), {
+      const userData: UserProfile = {
+        email,
         createdAt: new Date().toISOString(),
-      });
+        lastLoginAt: new Date().toISOString()
+      };
+      await setDoc(doc(db, 'users', userCredential.user.uid), userData);
+      setUserProfile(userData);
     } catch (error) {
       console.error('Error signing up:', error);
       throw error;
@@ -50,9 +78,29 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   async function login(email: string, password: string) {
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      // Update last login time
+      const userRef = doc(db, 'users', userCredential.user.uid);
+      await updateDoc(userRef, {
+        lastLoginAt: new Date().toISOString()
+      });
+      await fetchUserProfile(userCredential.user.uid);
     } catch (error) {
       console.error('Error logging in:', error);
+      throw error;
+    }
+  }
+
+  async function updateProfile(data: Partial<UserProfile>) {
+    if (!currentUser) throw new Error('No authenticated user');
+    try {
+      const userRef = doc(db, 'users', currentUser.uid);
+      await updateDoc(userRef, data);
+      if (userProfile) {
+        setUserProfile({ ...userProfile, ...data });
+      }
+    } catch (error) {
+      console.error('Error updating profile:', error);
       throw error;
     }
   }
@@ -67,8 +115,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
+      if (user) {
+        await fetchUserProfile(user.uid);
+      } else {
+        setUserProfile(null);
+      }
       setLoading(false);
     });
 
@@ -77,9 +130,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const value = {
     currentUser,
+    userProfile,
     signup,
     login,
     logout,
+    updateProfile,
     loading
   };
 
