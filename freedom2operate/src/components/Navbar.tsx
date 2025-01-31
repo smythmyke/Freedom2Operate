@@ -1,11 +1,11 @@
-import { AppBar, Toolbar, Button, Box, Menu, MenuItem } from '@mui/material';
+import { AppBar, Toolbar, Button, Box, Menu, MenuItem, Divider } from '@mui/material';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import Logo from './Logo';
 
 const Navbar = () => {
-  const { currentUser, logout } = useAuth();
+  const { currentUser, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
@@ -46,84 +46,86 @@ const Navbar = () => {
         </Box>
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
           {/* Navigation Links */}
-          <Button
-            color="inherit"
-            component={RouterLink}
-            to="/"
-            sx={{
-              '&:hover': {
-                backgroundColor: 'rgba(255, 255, 255, 0.1)',
-              }
-            }}
-          >
-            Home
-          </Button>
-          
-          {!currentUser && (
-            <>
+          <>
               <Button
                 color="inherit"
                 component={RouterLink}
-                to="/register"
+                to="/"
                 sx={{
                   '&:hover': {
                     backgroundColor: 'rgba(255, 255, 255, 0.1)',
                   }
                 }}
               >
-                Register
+                Home
               </Button>
-              <Button
-                color="inherit"
-                component={RouterLink}
-                to="/login"
-                sx={{
-                  '&:hover': {
-                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                  }
-                }}
-              >
-                Login
-              </Button>
-            </>
-          )}
+              
+              {!currentUser && (
+                <>
+                  <Button
+                    color="inherit"
+                    component={RouterLink}
+                    to="/register"
+                    sx={{
+                      '&:hover': {
+                        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                      }
+                    }}
+                  >
+                    Register
+                  </Button>
+                  <Button
+                    color="inherit"
+                    component={RouterLink}
+                    to="/login"
+                    sx={{
+                      '&:hover': {
+                        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                      }
+                    }}
+                  >
+                    Login
+                  </Button>
+                </>
+              )}
 
-          <Button
-            color="inherit"
-            component={RouterLink}
-            to="/expertise"
-            sx={{
-              '&:hover': {
-                backgroundColor: 'rgba(255, 255, 255, 0.1)',
-              }
-            }}
-          >
-            Expertise
-          </Button>
-          <Button
-            color="inherit"
-            component={RouterLink}
-            to="/contact"
-            sx={{
-              '&:hover': {
-                backgroundColor: 'rgba(255, 255, 255, 0.1)',
-              }
-            }}
-          >
-            Contact
-          </Button>
-          <Button
-            color="inherit"
-            component={RouterLink}
-            to="/about"
-            sx={{
-              '&:hover': {
-                backgroundColor: 'rgba(255, 255, 255, 0.1)',
-              }
-            }}
-          >
-            About
-          </Button>
+              <Button
+                color="inherit"
+                component={RouterLink}
+                to="/expertise"
+                sx={{
+                  '&:hover': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                  }
+                }}
+              >
+                Expertise
+              </Button>
+              <Button
+                color="inherit"
+                component={RouterLink}
+                to="/contact"
+                sx={{
+                  '&:hover': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                  }
+                }}
+              >
+                Contact
+              </Button>
+              <Button
+                color="inherit"
+                component={RouterLink}
+                to="/about"
+                sx={{
+                  '&:hover': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                  }
+                }}
+              >
+                About
+              </Button>
+          </>
           
           {/* User Menu */}
           {currentUser && (
@@ -151,6 +153,20 @@ const Navbar = () => {
                 >
                   Dashboard
                 </MenuItem>
+                {isAdmin && (
+                  <>
+                    <Divider />
+                    <MenuItem
+                      component={RouterLink}
+                      to="/admin"
+                      onClick={handleClose}
+                      sx={{ color: 'primary.main' }}
+                    >
+                      Admin Dashboard
+                    </MenuItem>
+                  </>
+                )}
+                <Divider />
                 <MenuItem onClick={handleLogout}>Logout</MenuItem>
               </Menu>
             </>

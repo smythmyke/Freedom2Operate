@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import {
   Container,
   Typography,
@@ -19,16 +20,39 @@ import {
   DialogContent,
   DialogActions,
   Grid,
+  Chip,
 } from '@mui/material';
+import VideoCallRequest from './VideoCallRequest';
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 import ProjectProgress from './ProjectProgress';
 import PaymentHistory from './PaymentHistory';
 
+// Helper function to properly capitalize titles
+const toTitleCase = (str: string) => {
+  // Words that should not be capitalized (unless they're the first word)
+  const minorWords = new Set(['a', 'an', 'and', 'as', 'at', 'but', 'by', 'for', 'in', 'nor', 'of', 'on', 'or', 'so', 'the', 'to', 'up', 'yet', 'with']);
+
+  return str.toLowerCase().split(' ').map((word, index) => {
+    // Always capitalize the first word
+    if (index === 0) return word.charAt(0).toUpperCase() + word.slice(1);
+    
+    // Don't capitalize minor words
+    if (minorWords.has(word)) return word;
+    
+    // Capitalize other words
+    return word.charAt(0).toUpperCase() + word.slice(1);
+  }).join(' ');
+};
+
+import { ProjectStatus } from './ProjectProgress';
+
 interface ReferenceData {
   referenceNumber: string;
   createdAt: string;
-  status: string;
+  status: ProjectStatus;
+  projectName: string;
+  searchType: 'fto' | 'patentability';
 }
 
 interface ProfileFormData {
@@ -53,8 +77,10 @@ interface PaymentData {
 }
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const { currentUser, userProfile, updateProfile } = useAuth();
   const [references, setReferences] = useState<ReferenceData[]>([]);
+  const [openVideoCall, setOpenVideoCall] = useState(false);
   const [progressData, setProgressData] = useState<ProgressData[]>([]);
   const [payments, setPayments] = useState<PaymentData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -86,7 +112,9 @@ const Dashboard = () => {
           refsData.push({
             referenceNumber: data.referenceNumber,
             createdAt: new Date(data.createdAt.toDate()).toLocaleDateString(),
-            status: data.status || 'Pending',
+            status: data.status || 'Draft',
+            projectName: data.projectName || 'Untitled Project',
+            searchType: data.searchType || 'fto',
           });
         });
 
@@ -198,6 +226,29 @@ const Dashboard = () => {
       <Typography variant="h4" component="h1" gutterBottom>
         My Dashboard
       </Typography>
+
+      {/* Quick Actions */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Typography variant="h6" gutterBottom>
+          Quick Actions
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => navigate('/submit')}
+          >
+            Start A Search
+          </Button>
+          <Button
+            variant="outlined"
+            color="primary"
+            onClick={() => setOpenVideoCall(true)}
+          >
+            Request Video Call
+          </Button>
+        </Box>
+      </Paper>
       
       <Grid container spacing={3}>
         {/* Profile Section */}
@@ -232,7 +283,6 @@ const Dashboard = () => {
         <Grid item xs={12}>
           {progressData.length > 0 && (
             <ProjectProgress
-              currentStep={progressData[0].currentStep}
               status={progressData[0].status}
               notes={progressData[0].notes}
             />
@@ -255,26 +305,66 @@ const Dashboard = () => {
                 No reference numbers found. Submit a new request to get started.
               </Typography>
             ) : (
-              <TableContainer>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Reference Number</TableCell>
-                      <TableCell>Created Date</TableCell>
-                      <TableCell>Status</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {references.map((ref) => (
-                      <TableRow key={ref.referenceNumber}>
-                        <TableCell>{ref.referenceNumber}</TableCell>
-                        <TableCell>{ref.createdAt}</TableCell>
-                        <TableCell>{ref.status}</TableCell>
+              <>
+                <TableContainer>
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Project Name</TableCell>
+                        <TableCell>Reference Number</TableCell>
+                        <TableCell>Type</TableCell>
+                        <TableCell>Created Date</TableCell>
+                        <TableCell>Status</TableCell>
+                        <TableCell>Actions</TableCell>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+                    </TableHead>
+                    <TableBody>
+                      {references.map((ref) => (
+                        <TableRow key={ref.referenceNumber}>
+                          <TableCell>{toTitleCase(ref.projectName)}</TableCell>
+                          <TableCell>{ref.referenceNumber}</TableCell>
+                          <TableCell>{ref.searchType === 'fto' ? 'F2O' : 'Patentability'}</TableCell>
+                          <TableCell>{ref.createdAt}</TableCell>
+                          <TableCell>
+                            <Chip
+                              label={ref.status}
+                              color={
+                                ref.status === 'Completed' ? 'success' :
+                                ref.status === 'In Progress' ? 'primary' :
+                                ref.status === 'On Hold' ? 'warning' :
+                                ref.status === 'Draft' ? 'default' :
+                                'info'
+                              }
+                              size="small"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            {ref.status === 'Draft' && (
+                              <Button
+                                size="small"
+                                onClick={() => navigate(`/submit?draft=${ref.referenceNumber}`)}
+                              >
+                                Continue
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+                <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                  <Typography variant="caption" color="text.secondary">
+                    Status Legend:
+                  </Typography>
+                  <Chip label="Draft" size="small" sx={{ mr: 1 }} />
+                  <Chip label="Submitted" color="info" size="small" sx={{ mr: 1 }} />
+                  <Chip label="Pending" color="info" size="small" sx={{ mr: 1 }} />
+                  <Chip label="In Progress" color="primary" size="small" sx={{ mr: 1 }} />
+                  <Chip label="On Hold" color="warning" size="small" sx={{ mr: 1 }} />
+                  <Chip label="Completed" color="success" size="small" />
+                </Box>
+              </>
             )}
           </Paper>
         </Grid>
@@ -320,6 +410,13 @@ const Dashboard = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Video Call Request Dialog */}
+      <VideoCallRequest
+        open={openVideoCall}
+        onClose={() => setOpenVideoCall(false)}
+        references={references}
+      />
     </Container>
   );
 };

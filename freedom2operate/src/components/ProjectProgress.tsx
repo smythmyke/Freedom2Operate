@@ -11,13 +11,23 @@ import {
 } from '@mui/material';
 
 interface ProjectProgressProps {
-  currentStep: number;
   status: string;
   notes?: string;
   loading?: boolean;
 }
 
-const steps = [
+export type ProjectStatus = 'Draft' | 'Submitted' | 'Pending' | 'In Progress' | 'On Hold' | 'Completed';
+
+const steps = {
+  'Draft': -1,
+  'Submitted': 0,
+  'Pending': 0,
+  'In Progress': 1,
+  'On Hold': 1,
+  'Completed': 5
+};
+
+const progressSteps = [
   'Submission Received',
   'Initial Review',
   'Technical Analysis',
@@ -27,8 +37,7 @@ const steps = [
 ];
 
 const ProjectProgress: React.FC<ProjectProgressProps> = ({
-  currentStep,
-  status,
+  status = 'Draft',
   notes,
   loading = false
 }) => {
@@ -54,8 +63,8 @@ const ProjectProgress: React.FC<ProjectProgressProps> = ({
         />
       </Box>
       
-      <Stepper activeStep={currentStep} alternativeLabel>
-        {steps.map((label) => (
+      <Stepper activeStep={steps[status as ProjectStatus]} alternativeLabel>
+        {progressSteps.map((label) => (
           <Step key={label}>
             <StepLabel>{label}</StepLabel>
           </Step>
