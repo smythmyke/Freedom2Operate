@@ -168,6 +168,15 @@ const TechnicalExpertisePage = () => {
                 </ListItemIcon>
                 <ListItemText primary="World Intellectual Property Organization (WIPO)" />
               </ListItem>
+              <ListItem>
+                <ListItemIcon>
+                  <CheckCircleIcon color="primary" />
+                </ListItemIcon>
+                <ListItemText 
+                  primary="Lens.org" 
+                  secondary="Advanced patent analytics and scholarly works platform"
+                />
+              </ListItem>
             </List>
           </Grid>
           <Grid item xs={12} md={6}>
