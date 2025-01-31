@@ -2,37 +2,55 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isAdmin() {
+      return request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
     match /users/{userId} {
       // Allow users to read and write their own document
       allow read: if request.auth != null && userId == request.auth.uid;
-      // Allow creation only if the document ID matches the user's ID and contains required fields
-      allow create: if request.auth != null 
-        && userId == request.auth.uid
-        && request.resource.data.keys().hasAll(['createdAt', 'email']);
-      // Allow users to update their own profile
-      allow update: if request.auth != null 
-        && userId == request.auth.uid
-        && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['displayName', 'phone', 'company', 'lastLoginAt']);
-      allow delete: if false;
+      // Allow creation and updates
+      allow write: if request.auth != null && userId == request.auth.uid;
     }
 
     match /submissions/{submissionId} {
-      // Allow users to read their own submissions
-      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      // Allow users to read their own submissions, admins can read all
+      allow read: if request.auth != null && 
+        (resource.data.userId == request.auth.uid || isAdmin());
       
       // Allow users to create submissions if they're authenticated and the userId matches their auth id
       allow create: if request.auth != null 
         && request.resource.data.userId == request.auth.uid
-        && request.resource.data.submittedAt is timestamp;
+        && (
+          // For submitted forms
+          (request.resource.data.status == 'Submitted' && request.resource.data.submittedAt is timestamp)
+          ||
+          // For drafts
+          (request.resource.data.status == 'Draft' && request.resource.data.createdAt is timestamp)
+        );
       
-      // Prevent updates and deletes
-      allow update, delete: if false;
+      // Allow users to update their own drafts, admins can update any submission
+      allow update: if request.auth != null && (
+        // Admin updates
+        (isAdmin() && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'notes', 'updatedAt']))
+        ||
+        // User draft updates
+        (resource.data.userId == request.auth.uid 
+         && resource.data.status == 'Draft'
+         && request.resource.data.status == 'Draft'
+         && request.resource.data.userId == request.auth.uid
+         && request.resource.data.lastModified is timestamp)
+      );
+      
+      allow delete: if isAdmin();
     }
 
     match /payments/{paymentId} {
-      // Allow users to read their own payments
-      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      // Allow users to read their own payments, admins can read all
+      allow read: if request.auth != null && 
+        (resource.data.userId == request.auth.uid || isAdmin());
       
       // Allow payment creation with required fields
       allow create: if request.auth != null 
@@ -40,30 +58,65 @@ service cloud.firestore {
         && request.resource.data.keys().hasAll(['amount', 'status', 'createdAt', 'submissionId']);
       
       // Allow updates only to specific fields
-      allow update: if request.auth != null 
+      allow update: if (request.auth != null 
         && resource.data.userId == request.auth.uid
         && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['status', 'updatedAt']);
+            .hasOnly(['status', 'updatedAt']))
+        || isAdmin();
       
-      allow delete: if false;
+      allow delete: if isAdmin();
+    }
+
+    match /ndaAgreements/{ndaId} {
+      // Allow users to read their own NDAs, admins can read all
+      allow read: if request.auth != null && 
+        (resource.data.userId == request.auth.uid || isAdmin());
+      
+      // Allow NDA creation with required fields
+      allow create: if request.auth != null 
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.keys().hasAll(['signedAt', 'status'])
+        && request.resource.data.signedAt is timestamp;
+      
+      // Only admins can update or delete NDAs
+      allow update, delete: if isAdmin();
     }
 
     match /progress/{progressId} {
-      // Allow users to read their submission progress
-      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      // Allow users to read their submission progress, admins can read all
+      allow read: if request.auth != null && 
+        (resource.data.userId == request.auth.uid || isAdmin());
       
       // Allow progress creation with required fields
       allow create: if request.auth != null 
-        && request.resource.data.userId == request.auth.uid
+        && (request.resource.data.userId == request.auth.uid || isAdmin())
         && request.resource.data.keys().hasAll(['submissionId', 'status', 'createdAt', 'currentStep']);
       
       // Allow updates to progress tracking fields
       allow update: if request.auth != null 
-        && resource.data.userId == request.auth.uid
+        && (resource.data.userId == request.auth.uid || isAdmin())
         && request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['status', 'currentStep', 'updatedAt', 'notes']);
       
-      allow delete: if false;
+      allow delete: if isAdmin();
+    }
+
+    match /reports/{reportId} {
+      // Only admins can access reports
+      allow read: if isAdmin();
+      
+      // Only admins can create reports
+      allow create: if isAdmin() 
+        && request.resource.data.keys().hasAll(['submissionId', 'type', 'createdAt', 'updatedAt', 'createdBy', 'status'])
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp;
+      
+      // Only admins can update reports
+      allow update: if isAdmin()
+        && request.resource.data.updatedAt is timestamp;
+      
+      // Only admins can delete reports
+      allow delete: if isAdmin();
     }
   }
 }
