@@ -5,5 +5,15 @@ service firebase.storage {
       // Allow read/write access if the user is authenticated and the path segment matches their user ID
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
+    
+    match /submissions/{userId}/{fileName} {
+      // Allow read/write access if the user is authenticated and the path segment matches their user ID
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    match /drafts/{userId}/{fileName} {
+      // Allow read/write access if the user is authenticated and the path segment matches their user ID
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
   }
 }
