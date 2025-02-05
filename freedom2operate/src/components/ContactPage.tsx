@@ -112,6 +112,9 @@ const ContactPage = () => {
                 variant="outlined"
                 value={formData.firstName}
                 onChange={handleInputChange('firstName')}
+                InputLabelProps={{
+                  shrink: true,
+                }}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -122,6 +125,9 @@ const ContactPage = () => {
                 variant="outlined"
                 value={formData.lastName}
                 onChange={handleInputChange('lastName')}
+                InputLabelProps={{
+                  shrink: true,
+                }}
               />
             </Grid>
             <Grid item xs={12}>
@@ -133,6 +139,9 @@ const ContactPage = () => {
                 variant="outlined"
                 value={formData.email}
                 onChange={handleInputChange('email')}
+                InputLabelProps={{
+                  shrink: true,
+                }}
               />
             </Grid>
             <Grid item xs={12}>
@@ -143,6 +152,9 @@ const ContactPage = () => {
                 variant="outlined"
                 value={formData.subject}
                 onChange={handleInputChange('subject')}
+                InputLabelProps={{
+                  shrink: true,
+                }}
               />
             </Grid>
             <Grid item xs={12}>
@@ -155,6 +167,9 @@ const ContactPage = () => {
                 variant="outlined"
                 value={formData.message}
                 onChange={handleInputChange('message')}
+                InputLabelProps={{
+                  shrink: true,
+                }}
               />
             </Grid>
             <Grid item xs={12}>

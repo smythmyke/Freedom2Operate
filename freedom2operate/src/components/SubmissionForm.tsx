@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Box,
   Paper,
@@ -17,7 +18,7 @@ import {
   MenuItem,
   OutlinedInput,
 } from '@mui/material';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
@@ -25,32 +26,78 @@ import { generateReferenceNumber } from '../utils/referenceNumber';
 import { generateSubmissionPDF } from '../utils/pdfGenerator';
 import { sendSubmissionEmail, sendAdminNotification } from '../utils/emailService';
 import PaymentStep from './PaymentStep';
-import TextLogo from './TextLogo';
+import F2O from './F2O';
+
+// Helper function to properly capitalize titles
+const toTitleCase = (str: string) => {
+  // Words that should not be capitalized (unless they're the first word)
+  const minorWords = new Set(['a', 'an', 'and', 'as', 'at', 'but', 'by', 'for', 'in', 'nor', 'of', 'on', 'or', 'so', 'the', 'to', 'up', 'yet', 'with']);
+
+  return str.toLowerCase().split(' ').map((word, index) => {
+    // Always capitalize the first word
+    if (index === 0) return word.charAt(0).toUpperCase() + word.slice(1);
+    
+    // Don't capitalize minor words
+    if (minorWords.has(word)) return word;
+    
+    // Capitalize other words
+    return word.charAt(0).toUpperCase() + word.slice(1);
+  }).join(' ');
+};
 
 const steps = ['Basic Information', 'Invention Details', 'Supporting Documents', 'Review', 'Payment'];
 
 // Service pricing
 const PRICING = {
-  base: 2500, // Base price for FTO search
+  base: 500, // Base price for F2O search
   expedited: 1000, // Additional cost for expedited service
   consultation: 500, // Additional cost for consultation
+  featureGeneration: 75, // Cost for auto-generating features
 };
 
 const SubmissionForm = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [activeStep, setActiveStep] = useState(0);
-  const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error' | 'draft'>('idle');
   const [files, setFiles] = useState<File[]>([]);
   const [searchType, setSearchType] = useState<'fto' | 'patentability'>('fto');
   const [totalAmount, setTotalAmount] = useState(PRICING.base);
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile } = useAuth();
+
+  // Check if user came from NDA form
+  useEffect(() => {
+    const ndaId = sessionStorage.getItem('ndaId');
+    const fromNda = location.state?.fromNda;
+    const name = location.state?.name;
+    const company = location.state?.company;
+    
+    if (!ndaId) {
+      // Only redirect if we haven't just come from the NDA form
+      if (!fromNda) {
+        navigate('/', { state: { openNda: true } });
+        return;
+      }
+    } else if (name) {
+      // Pre-fill form with NDA details
+      setFormData(prev => ({
+        ...prev,
+        contactName: name,
+        companyName: company || ''
+      }));
+    }
+  }, [location, navigate]);
+
   const [formData, setFormData] = useState({
     projectName: '',
     referenceNumber: '',
-    companyName: '',
-    contactName: '',
+    companyName: userProfile?.company || '',
+    contactName: userProfile?.displayName || '',
     email: currentUser?.email || '',
-    phone: '',
+    phone: userProfile?.phone || '',
     requestConsultation: false,
+    consultationDateTime: '',
+    autoGenerateFeatures: false,
     inventionTitle: '',
     background: '',
     description: '',
@@ -62,22 +109,37 @@ const SubmissionForm = () => {
     relatedPatents: [''],
   });
 
-  // Update email when user is loaded
+  // Update user information when profile is loaded
   useEffect(() => {
     if (currentUser?.email) {
       handleInputChange('email', currentUser.email);
     }
-  }, [currentUser]);
+    if (userProfile) {
+      if (userProfile.company) {
+        handleInputChange('companyName', userProfile.company);
+      }
+      if (userProfile.displayName) {
+        handleInputChange('contactName', userProfile.displayName);
+      }
+      if (userProfile.phone) {
+        handleInputChange('phone', userProfile.phone);
+      }
+    }
+  }, [currentUser, userProfile]);
 
   useEffect(() => {
     let total = PRICING.base;
-    if (formData.requestConsultation) {
-      total += PRICING.consultation;
+    if (formData.autoGenerateFeatures) {
+      total += PRICING.featureGeneration;
     }
     setTotalAmount(total);
-  }, [formData.requestConsultation]);
+  }, [formData.requestConsultation, formData.autoGenerateFeatures]);
 
   const handleInputChange = (field: string, value: string | string[] | boolean) => {
+    // Apply title case to project name and invention title
+    if (field === 'projectName' || field === 'inventionTitle') {
+      value = toTitleCase(value as string);
+    }
     if (field === 'phone' && typeof value === 'string') {
       const numbers = value.replace(/\D/g, '');
       const truncated = numbers.slice(0, 10);
@@ -105,8 +167,131 @@ const SubmissionForm = () => {
     }
   };
 
+  const searchParams = new URLSearchParams(location.search);
+  const draftId = searchParams.get('draft');
+
+  // Load draft if available
+  useEffect(() => {
+    const loadDraft = async () => {
+      if (!draftId || !currentUser) return;
+
+      try {
+        const draftDoc = await getDocs(
+          query(
+            collection(db, 'submissions'),
+            where('referenceNumber', '==', draftId),
+            where('userId', '==', currentUser.uid),
+            where('status', '==', 'Draft')
+          )
+        );
+
+        if (!draftDoc.empty) {
+          const draftData = draftDoc.docs[0].data();
+          setFormData({
+            projectName: draftData.projectName || '',
+            referenceNumber: draftData.referenceNumber || '',
+            companyName: draftData.companyName || '',
+            contactName: draftData.contactName || '',
+            email: draftData.email || '',
+            phone: draftData.phone || '',
+            requestConsultation: draftData.requestConsultation || false,
+            consultationDateTime: draftData.consultationDateTime || '',
+            autoGenerateFeatures: draftData.autoGenerateFeatures || false,
+            inventionTitle: draftData.inventionTitle || '',
+            background: draftData.background || '',
+            description: draftData.description || '',
+            features: draftData.features || ['', '', '', '', '', ''],
+            technicalField: draftData.technicalField || '',
+            targetMarkets: draftData.targetMarkets || ['US'],
+            conceptionDate: draftData.conceptionDate || '',
+            targetJurisdictions: draftData.targetJurisdictions || ['US'],
+            relatedPatents: draftData.relatedPatents || [''],
+          });
+          setSearchType(draftData.searchType);
+          setSubmitStatus('draft');
+        }
+      } catch (error) {
+        console.error('Error loading draft:', error);
+      }
+    };
+
+    loadDraft();
+  }, [draftId, currentUser]);
+
+  // Save draft when form data changes
+  const saveDraft = useCallback(async () => {
+    if (!currentUser || activeStep === 4) return; // Don't save during payment step
+
+    try {
+      const referenceNumber = formData.referenceNumber || generateReferenceNumber(currentUser.uid);
+      const currentStepName = steps[activeStep];
+      const completedSteps = steps.slice(0, activeStep);
+      
+      const draftData = {
+        ...formData,
+        referenceNumber,
+        userId: currentUser.uid,
+        createdAt: new Date(),
+        lastModified: new Date(),
+        status: 'Draft',
+        paymentStatus: 'Unpaid',
+        searchType,
+        currentStep: currentStepName,
+        completedSteps,
+        formData: { ...formData },
+      };
+
+      // Check if draft already exists
+      const draftQuery = query(
+        collection(db, 'submissions'),
+        where('referenceNumber', '==', referenceNumber),
+        where('userId', '==', currentUser.uid),
+        where('status', '==', 'Draft')
+      );
+      
+      const draftSnapshot = await getDocs(draftQuery);
+      
+      if (!draftSnapshot.empty) {
+        // Update existing draft
+        await updateDoc(draftSnapshot.docs[0].ref, draftData);
+      } else {
+        // Create new draft
+        await addDoc(collection(db, 'submissions'), draftData);
+      }
+
+      // Update form data with reference number if it was just generated
+      if (!formData.referenceNumber) {
+        setFormData(prev => ({ ...prev, referenceNumber }));
+      }
+    } catch (error) {
+      console.error('Error saving draft:', error);
+    }
+  }, [formData, currentUser, activeStep, searchType, steps]);
+
+  // Auto-save draft when form data changes
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (formData.projectName && submitStatus !== 'success') {
+        saveDraft();
+      }
+    }, 2000); // Save after 2 seconds of no changes
+
+    return () => clearTimeout(timeoutId);
+  }, [formData, saveDraft, submitStatus]);
+
   const handleNext = () => {
-    setActiveStep((prev) => prev + 1);
+    const nextStep = activeStep + 1;
+    setActiveStep(nextStep);
+    
+    // Save progress when completing a step
+    if (isStepValid()) {
+      saveDraft();
+    }
+    
+    // Update status when moving to payment
+    if (activeStep === steps.length - 2) {
+      setSubmitStatus('idle'); // Reset from draft if it was a draft
+    }
   };
 
   const handleBack = () => {
@@ -117,11 +302,14 @@ const SubmissionForm = () => {
     switch (activeStep) {
       case 0:
         return formData.projectName && formData.contactName && 
-               formData.email && formData.phone;
+               formData.email && formData.phone &&
+               (!formData.requestConsultation || formData.consultationDateTime);
       case 1: {
-        const baseValid = formData.inventionTitle && formData.description && 
-               formData.features.filter(f => f).length > 0;
-        return baseValid;
+        const baseValid = formData.inventionTitle && formData.description;
+        if (formData.autoGenerateFeatures) {
+          return baseValid;
+        }
+        return baseValid && formData.features.filter(f => f).length > 0;
       }
       case 2:
         return true; // File upload is optional
@@ -170,16 +358,49 @@ const SubmissionForm = () => {
         referenceNumber,
       });
 
-      // Create Firestore document
-      await addDoc(collection(db, 'submissions'), {
+      // Update Firestore document
+      const submissionRef = draftId ? 
+        query(
+          collection(db, 'submissions'),
+          where('referenceNumber', '==', draftId),
+          where('userId', '==', currentUser?.uid),
+          where('status', '==', 'Draft')
+        ) :
+        null;
+
+      const submissionData = {
         ...formData,
         referenceNumber,
         fileUrls,
         submittedAt: new Date(),
-        status: 'paid',
+        status: 'Submitted',
+        paymentStatus: 'Paid',
         searchType,
         paymentDetails,
         userId: currentUser?.uid || '',
+      };
+
+      if (submissionRef) {
+        // Update existing draft
+        const draftDoc = await getDocs(submissionRef);
+        if (!draftDoc.empty) {
+          await updateDoc(draftDoc.docs[0].ref, submissionData);
+        } else {
+          await addDoc(collection(db, 'submissions'), submissionData);
+        }
+      } else {
+        // Create new submission
+        await addDoc(collection(db, 'submissions'), submissionData);
+      }
+
+      // Create initial progress entry
+      await addDoc(collection(db, 'progress'), {
+        submissionId: referenceNumber,
+        userId: currentUser?.uid,
+        currentStep: 0,
+        status: 'Submitted',
+        notes: 'Submission received and payment confirmed.',
+        createdAt: new Date(),
       });
 
       // Send confirmation email
@@ -219,9 +440,9 @@ const SubmissionForm = () => {
         Service Summary
       </Typography>
       <Box sx={{ maxWidth: 400, mx: 'auto', mb: 4 }}>
-        <Typography><strong>Base Service:</strong> ${PRICING.base}</Typography>
-        {formData.requestConsultation && (
-          <Typography><strong>Consultation:</strong> ${PRICING.consultation}</Typography>
+        <Typography><strong>{searchType === 'fto' ? 'F2O' : 'Patentability'} Search:</strong> ${PRICING.base}</Typography>
+        {formData.autoGenerateFeatures && (
+          <Typography><strong>Feature Generation:</strong> ${PRICING.featureGeneration}</Typography>
         )}
         <Typography variant="h6" sx={{ mt: 2 }}>
           Total: ${totalAmount}
@@ -235,7 +456,7 @@ const SubmissionForm = () => {
     </Box>
   );
 
-  // Rest of the component remains the same until the renderStepContent switch
+  // Rest of the component remains the same...
   const renderStepContent = () => {
     switch (activeStep) {
       case 0:
@@ -252,7 +473,7 @@ const SubmissionForm = () => {
                   onClick={() => setSearchType('fto')}
                   sx={{ mr: 2 }}
                 >
-                  <TextLogo />
+                  <F2O />
                 </Button>
                 <Button
                   variant={searchType === 'patentability' ? 'contained' : 'outlined'}
@@ -267,6 +488,9 @@ const SubmissionForm = () => {
                 value={formData.projectName}
                 onChange={(e) => handleInputChange('projectName', e.target.value)}
                 required
+                InputLabelProps={{
+                  shrink: true,
+                }}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -275,6 +499,9 @@ const SubmissionForm = () => {
                 label="Company Name"
                 value={formData.companyName}
                 onChange={(e) => handleInputChange('companyName', e.target.value)}
+                InputLabelProps={{
+                  shrink: true,
+                }}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -284,6 +511,9 @@ const SubmissionForm = () => {
                 value={formData.contactName}
                 onChange={(e) => handleInputChange('contactName', e.target.value)}
                 required
+                InputLabelProps={{
+                  shrink: true,
+                }}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -294,6 +524,9 @@ const SubmissionForm = () => {
                 value={formData.email}
                 onChange={(e) => handleInputChange('email', e.target.value)}
                 required
+                InputLabelProps={{
+                  shrink: true,
+                }}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -304,25 +537,48 @@ const SubmissionForm = () => {
                 onChange={(e) => handleInputChange('phone', e.target.value)}
                 required
                 helperText="Format: (555) 555-5555"
+                InputLabelProps={{
+                  shrink: true,
+                }}
               />
             </Grid>
             <Grid item xs={12}>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={formData.requestConsultation}
-                    onChange={(e) => handleInputChange('requestConsultation', e.target.checked)}
-                  />
-                }
-                label={
-                  <Box>
-                    <Typography>Request a 30-minute consultation (+${PRICING.consultation})</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Schedule a video call to discuss the details of your invention with our experts
-                    </Typography>
+              <Box>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={formData.requestConsultation}
+                      onChange={(e) => handleInputChange('requestConsultation', e.target.checked)}
+                    />
+                  }
+                  label={
+                    <Box>
+                      <Typography>Request a 30-minute consultation (Free)</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Schedule a video call to discuss the details of your invention with our experts
+                      </Typography>
+                    </Box>
+                  }
+                />
+                {formData.requestConsultation && (
+                  <Box sx={{ mt: 2, ml: 4 }}>
+                    <TextField
+                      fullWidth
+                      label="Preferred Consultation Date & Time"
+                      type="datetime-local"
+                      value={formData.consultationDateTime}
+                      onChange={(e) => handleInputChange('consultationDateTime', e.target.value)}
+                      InputLabelProps={{ shrink: true }}
+                      inputProps={{
+                        min: new Date(new Date().getTime() + 24 * 60 * 60 * 1000).toISOString().slice(0, 16),
+                        max: new Date(new Date().getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16)
+                      }}
+                      helperText="Please select a date and time at least 24 hours in advance (available for next 30 days)"
+                      required={formData.requestConsultation}
+                    />
                   </Box>
-                }
-              />
+                )}
+              </Box>
             </Grid>
           </Grid>
         );
@@ -338,6 +594,9 @@ const SubmissionForm = () => {
                 value={formData.inventionTitle}
                 onChange={(e) => handleInputChange('inventionTitle', e.target.value)}
                 required
+                InputLabelProps={{
+                  shrink: true,
+                }}
               />
             </Grid>
             {searchType === 'fto' && (
@@ -413,21 +672,38 @@ const SubmissionForm = () => {
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                     Enter patent numbers that you know are similar to or may be relevant to your invention
                   </Typography>
-                  <TextField
-                    fullWidth
-                    label="Add Patent Number"
-                    value={formData.relatedPatents[formData.relatedPatents.length - 1]}
-                    onChange={(e) => {
-                      const newPatents = [...formData.relatedPatents];
-                      newPatents[newPatents.length - 1] = e.target.value;
-                      handleInputChange('relatedPatents', newPatents);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && formData.relatedPatents[formData.relatedPatents.length - 1]) {
-                        handleInputChange('relatedPatents', [...formData.relatedPatents, '']);
-                      }
-                    }}
-                  />
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <TextField
+                      fullWidth
+                      label="Add Patent Number"
+                      value={formData.relatedPatents[formData.relatedPatents.length - 1]}
+                      onChange={(e) => {
+                        const newPatents = [...formData.relatedPatents];
+                        newPatents[newPatents.length - 1] = e.target.value;
+                        handleInputChange('relatedPatents', newPatents);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && formData.relatedPatents[formData.relatedPatents.length - 1]) {
+                          e.preventDefault();
+                          handleInputChange('relatedPatents', [...formData.relatedPatents, '']);
+                        }
+                      }}
+                      InputLabelProps={{
+                        shrink: true,
+                      }}
+                    />
+                    <Button
+                      variant="contained"
+                      onClick={() => {
+                        if (formData.relatedPatents[formData.relatedPatents.length - 1]) {
+                          handleInputChange('relatedPatents', [...formData.relatedPatents, '']);
+                        }
+                      }}
+                      disabled={!formData.relatedPatents[formData.relatedPatents.length - 1]}
+                    >
+                      Add
+                    </Button>
+                  </Box>
                   <Box sx={{ mt: 1 }}>
                     {formData.relatedPatents.slice(0, -1).map((patent, index) => (
                       <Chip
@@ -450,6 +726,9 @@ const SubmissionForm = () => {
                 label="Technical Field"
                 value={formData.technicalField}
                 onChange={(e) => handleInputChange('technicalField', e.target.value)}
+                InputLabelProps={{
+                  shrink: true,
+                }}
               />
             </Grid>
             <Grid item xs={12}>
@@ -461,6 +740,9 @@ const SubmissionForm = () => {
                 value={formData.background}
                 onChange={(e) => handleInputChange('background', e.target.value)}
                 helperText="Describe the problem or need that your invention addresses"
+                InputLabelProps={{
+                  shrink: true,
+                }}
               />
             </Grid>
             <Grid item xs={12}>
@@ -473,29 +755,86 @@ const SubmissionForm = () => {
                 onChange={(e) => handleInputChange('description', e.target.value)}
                 required
                 helperText="Provide a detailed description of your invention"
+                InputLabelProps={{
+                  shrink: true,
+                }}
               />
             </Grid>
             <Grid item xs={12}>
-              <Typography variant="h6" gutterBottom>
-                Key Features (up to 6)
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Describe the key technical aspects that make your invention unique. Each feature should be a specific technical element, not a benefit or result.
-              </Typography>
-              {formData.features.map((feature, index) => (
-                <TextField
-                  key={index}
-                  fullWidth
-                  label={`Feature ${index + 1}`}
-                  value={feature}
-                  onChange={(e) => handleFeatureChange(index, e.target.value)}
-                  sx={{ mb: 2 }}
-                  required={index === 0}
-                  helperText={index === 0 ? "First feature is required. Example: A solar panel with bifacial cells that collect light from both sides" :
-                             index === 1 ? "Example: An anti-reflective coating made of zinc oxide nanoparticles" :
-                             index === 2 ? "Example: A tracking system that adjusts panel angle based on sun position" : ""}
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Box>
+                  <Typography variant="h6" gutterBottom>
+                    Key Features (up to 6)
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Describe the key technical aspects that make your invention unique. Each feature should be a specific technical element, not a benefit or result.
+                  </Typography>
+                </Box>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={formData.autoGenerateFeatures}
+                      onChange={(e) => handleInputChange('autoGenerateFeatures', e.target.checked)}
+                    />
+                  }
+                  label={
+                    <Box>
+                      <Typography>Let us write the features (+$75)</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        We'll analyze your documents and create the features for you
+                      </Typography>
+                    </Box>
+                  }
                 />
-              ))}
+              </Box>
+              {!formData.autoGenerateFeatures && (
+                <>
+                  {formData.features.filter((f, i) => f || i === formData.features.findIndex(feat => !feat)).map((feature, index) => (
+                    <Box key={index} sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                      <TextField
+                        fullWidth
+                        label={`Feature ${index + 1}`}
+                        value={feature}
+                        onChange={(e) => handleFeatureChange(index, e.target.value)}
+                        required={index === 0}
+                        helperText={index === 0 ? "First feature is required. Example: A solar panel with bifacial cells that collect light from both sides" :
+                                  index === 1 ? "Example: An anti-reflective coating made of zinc oxide nanoparticles" :
+                                  index === 2 ? "Example: A tracking system that adjusts panel angle based on sun position" : ""}
+                      />
+                      {index > 0 && (
+                        <Button
+                          variant="outlined"
+                          color="error"
+                          onClick={() => {
+                            const newFeatures = formData.features.filter((_, i) => i !== index);
+                            while (newFeatures.length < 6) newFeatures.push('');
+                            handleInputChange('features', newFeatures);
+                          }}
+                          sx={{ minWidth: '48px', px: 0 }}
+                        >
+                          X
+                        </Button>
+                      )}
+                    </Box>
+                  ))}
+                  {formData.features.filter(f => f).length < 6 && formData.features[formData.features.findIndex(f => !f)] && (
+                    <Button
+                      variant="contained"
+                      onClick={() => {
+                        const firstEmptyIndex = formData.features.findIndex(f => !f);
+                        if (firstEmptyIndex >= 0 && firstEmptyIndex < 6) {
+                          const newFeatures = [...formData.features];
+                          newFeatures[firstEmptyIndex] = formData.features[firstEmptyIndex];
+                          handleInputChange('features', newFeatures);
+                        }
+                      }}
+                      disabled={!formData.features[formData.features.findIndex(f => !f)]}
+                    >
+                      Add Feature
+                    </Button>
+                  )}
+                </>
+              )}
             </Grid>
           </Grid>
         );
@@ -548,20 +887,25 @@ const SubmissionForm = () => {
             <Grid container spacing={2}>
               <Grid item xs={12}>
                 <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'bold' }}>Project Information</Typography>
-                <Typography><strong>Project Name:</strong> {formData.projectName}</Typography>
+                <Typography><strong>Project Name:</strong> {toTitleCase(formData.projectName)}</Typography>
                 <Typography><strong>Company:</strong> {formData.companyName}</Typography>
                 <Typography><strong>Contact:</strong> {formData.contactName}</Typography>
                 <Typography><strong>Email:</strong> {formData.email}</Typography>
                 <Typography><strong>Phone:</strong> {formData.phone}</Typography>
                 {formData.requestConsultation && (
-                  <Typography sx={{ mt: 1, color: 'primary.main' }}>
-                    <strong>✓ Consultation Requested:</strong> 30-minute video call
-                  </Typography>
+                  <>
+                    <Typography sx={{ mt: 1, color: 'primary.main' }}>
+                      <strong>✓ Consultation Requested:</strong> 30-minute video call
+                    </Typography>
+                    <Typography sx={{ color: 'primary.main', ml: 2 }}>
+                      Preferred Time: {new Date(formData.consultationDateTime).toLocaleString()}
+                    </Typography>
+                  </>
                 )}
               </Grid>
               <Grid item xs={12}>
                 <Typography variant="subtitle1" sx={{ mt: 3, mb: 2, fontWeight: 'bold' }}>Invention Details</Typography>
-                <Typography><strong>Title:</strong> {formData.inventionTitle}</Typography>
+                <Typography><strong>Title:</strong> {toTitleCase(formData.inventionTitle)}</Typography>
                 {formData.technicalField && (
                   <Typography><strong>Technical Field:</strong> {formData.technicalField}</Typography>
                 )}
@@ -621,6 +965,43 @@ const SubmissionForm = () => {
                 )}
               </Grid>
             </Grid>
+
+            {/* Service Description */}
+            <Paper sx={{ p: 3, mt: 4, bgcolor: 'primary.light', color: 'primary.contrastText' }}>
+              <Typography variant="h6" gutterBottom>
+                What We Will Do
+              </Typography>
+              <Typography paragraph>
+                For {formData.companyName ? formData.companyName + "'s" : formData.contactName + "'s"} invention 
+                "{toTitleCase(formData.inventionTitle)}", we will conduct a comprehensive {searchType === 'fto' ? <F2O /> : 'Patentability'} search across 
+                multiple patent databases {searchType === 'fto' ? `focusing on ${formData.targetMarkets.join(', ')} markets` : 
+                'for patentability assessment'}.
+              </Typography>
+              <Typography paragraph>
+                Our analysis will include:
+              </Typography>
+              <Box component="ul" sx={{ pl: 2 }}>
+                <Typography component="li">
+                  Primary results highlighting patents that describe similar features in their claims
+                </Typography>
+                <Typography component="li">
+                  Secondary results showing related technologies that may be relevant but don't directly claim the features
+                </Typography>
+                <Typography component="li">
+                  A detailed PDF report with our findings and expert observations
+                </Typography>
+                {formData.autoGenerateFeatures && (
+                  <Typography component="li">
+                    Professional feature extraction and articulation from your provided documentation
+                  </Typography>
+                )}
+                {formData.requestConsultation && (
+                  <Typography component="li">
+                    A 30-minute consultation to discuss our findings and answer your questions
+                  </Typography>
+                )}
+              </Box>
+            </Paper>
           </Box>
         );
 
@@ -675,20 +1056,22 @@ const SubmissionForm = () => {
         
         {renderStepContent()}
 
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 4 }}>
-          {activeStep !== 0 && (
-            <Button onClick={handleBack} sx={{ mr: 1 }}>
-              Back
+        {activeStep !== 4 && (
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 4 }}>
+            {activeStep !== 0 && (
+              <Button onClick={handleBack} sx={{ mr: 1 }}>
+                Back
+              </Button>
+            )}
+            <Button
+              variant="contained"
+              onClick={handleNext}
+              disabled={!isStepValid()}
+            >
+              {activeStep === steps.length - 2 ? 'Proceed to Payment' : 'Next'}
             </Button>
-          )}
-          <Button
-            variant="contained"
-            onClick={handleNext}
-            disabled={!isStepValid()}
-          >
-            {activeStep === steps.length - 2 ? 'Proceed to Payment' : 'Next'}
-          </Button>
-        </Box>
+          </Box>
+        )}
       </form>
     </Paper>
   );

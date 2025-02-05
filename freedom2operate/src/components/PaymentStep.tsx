@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
 import { Box, Typography, Alert } from '@mui/material';
-import TextLogo from './TextLogo';
+import F2O from './F2O';
 
 interface PayPalPaymentDetails {
   id: string;
@@ -30,7 +30,7 @@ const PaymentStep = ({ amount, onSuccess, onError }: PaymentStepProps) => {
   const [error, setError] = useState<string | null>(null);
 
   const initialOptions = {
-    clientId: process.env.REACT_APP_PAYPAL_CLIENT_ID || '',
+    clientId: import.meta.env.VITE_PAYPAL_CLIENT_ID || '',
     currency: 'USD',
     intent: 'capture',
   };
@@ -39,7 +39,7 @@ const PaymentStep = ({ amount, onSuccess, onError }: PaymentStepProps) => {
     <Box sx={{ maxWidth: 600, mx: 'auto', p: 2 }}>
       <Box sx={{ textAlign: 'center', mb: 3 }}>
         <Typography variant="h6" gutterBottom>
-          <TextLogo /> Search Service
+          <F2O /> Search Service
         </Typography>
         <Typography variant="body1">
           Total Amount: ${amount}

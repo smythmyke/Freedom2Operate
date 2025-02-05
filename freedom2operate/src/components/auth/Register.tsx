@@ -147,6 +147,9 @@ const Register = () => {
               autoComplete="name"
               value={formData.displayName}
               onChange={handleChange}
+              InputLabelProps={{
+                shrink: true,
+              }}
             />
             <TextField
               margin="normal"
@@ -157,6 +160,9 @@ const Register = () => {
               autoComplete="organization"
               value={formData.company}
               onChange={handleChange}
+              InputLabelProps={{
+                shrink: true,
+              }}
             />
             <TextField
               margin="normal"
@@ -168,6 +174,9 @@ const Register = () => {
               value={formData.phone}
               onChange={handleChange}
               helperText="Format: (555) 555-5555"
+              InputLabelProps={{
+                shrink: true,
+              }}
             />
             <TextField
               margin="normal"
@@ -179,6 +188,9 @@ const Register = () => {
               autoComplete="email"
               value={formData.email}
               onChange={handleChange}
+              InputLabelProps={{
+                shrink: true,
+              }}
             />
             <TextField
               margin="normal"
@@ -191,6 +203,9 @@ const Register = () => {
               autoComplete="new-password"
               value={formData.password}
               onChange={handleChange}
+              InputLabelProps={{
+                shrink: true,
+              }}
             />
             <TextField
               margin="normal"
@@ -203,6 +218,9 @@ const Register = () => {
               autoComplete="new-password"
               value={formData.passwordConfirm}
               onChange={handleChange}
+              InputLabelProps={{
+                shrink: true,
+              }}
             />
             <Button
               type="submit"

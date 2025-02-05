@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import './App.css';
 import { Box, Container, CssBaseline, ThemeProvider, createTheme } from '@mui/material';
 import { AuthProvider } from './contexts/AuthContext';
@@ -13,6 +13,8 @@ import Login from './components/auth/Login';
 import Register from './components/auth/Register';
 import Dashboard from './components/Dashboard';
 import ProtectedRoute from './components/auth/ProtectedRoute';
+import AdminRoute from './components/auth/AdminRoute';
+import AdminDashboard from './components/admin/AdminDashboard';
 
 const theme = createTheme({
   palette: {
@@ -64,6 +66,23 @@ function App() {
                     <Dashboard />
                   </ProtectedRoute>
                 } 
+              />
+              {/* Admin Routes */}
+              <Route
+                path="/admin"
+                element={
+                  <AdminRoute>
+                    <AdminDashboard />
+                  </AdminRoute>
+                }
+              />
+              <Route
+                path="/admin/*"
+                element={
+                  <AdminRoute>
+                    <Navigate to="/admin" replace />
+                  </AdminRoute>
+                }
               />
             </Routes>
           </Container>

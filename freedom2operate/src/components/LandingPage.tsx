@@ -1,17 +1,34 @@
-import { Box, Typography, Button, Paper, Grid } from '@mui/material';
+import { Box, Typography, Button, Paper, Grid, Container, Table, TableBody, TableCell, TableHead, TableRow } from '@mui/material';
 import Logo from '../components/Logo';
 import TextLogo from '../components/TextLogo';
-import { useNavigate } from 'react-router-dom';
+import ContactForm from '../components/ContactForm';
+import NDAForm from './NDAForm';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import SearchIcon from '@mui/icons-material/Search';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import SecurityIcon from '@mui/icons-material/Security';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CheckIcon from '@mui/icons-material/Check';
+import CloseIcon from '@mui/icons-material/Close';
 
 const LandingPage = () => {
   const navigate = useNavigate();
+  const [ndaOpen, setNdaOpen] = useState(false);
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.state?.openNda) {
+      setNdaOpen(true);
+    }
+  }, [location]);
+
+  const handleStartSearch = () => {
+    setNdaOpen(true);
+  };
 
   return (
-    <Box sx={{ maxWidth: '100%', px: { xs: 2, sm: 4, md: 6 } }}>
+    <Box sx={{ maxWidth: '100%', px: { xs: 1.5, sm: 3, md: 4 } }}>
       {/* Hero Section */}
       <Box sx={{ textAlign: 'center', mb: 8 }}>
         <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
@@ -34,7 +51,7 @@ const LandingPage = () => {
       </Box>
 
       {/* Features Section */}
-      <Grid container spacing={4} sx={{ mb: 8 }}>
+      <Grid container spacing={3} sx={{ mb: 8 }}>
         <Grid item xs={12} md={4}>
           <Paper 
             elevation={3}
@@ -154,7 +171,7 @@ const LandingPage = () => {
             <Button
               variant="contained"
               size="large"
-              onClick={() => navigate('/submit')}
+              onClick={handleStartSearch}
               sx={{
                 width: '80%',
                 py: 1.5
@@ -211,7 +228,7 @@ const LandingPage = () => {
       </Grid>
 
       {/* Service Details */}
-      <Paper sx={{ p: 4, mb: 8 }}>
+      <Paper sx={{ p: 3.5, mb: 8 }}>
         <Typography variant="h4" gutterBottom>
           Our Services
         </Typography>
@@ -221,7 +238,7 @@ const LandingPage = () => {
         </Typography>
         <Typography paragraph>
           We conduct thorough searches across multiple patent databases including Google Patents, Google Scholar, 
-          and specialized patent databases. Our comprehensive search covers both public published information 
+          Lens.org, and other specialized patent databases. Our comprehensive search covers both public published information 
           and patent documents to provide you with a clear understanding of the patent landscape around your invention.
         </Typography>
         <Typography paragraph>
@@ -262,8 +279,282 @@ const LandingPage = () => {
         </Box>
       </Paper>
 
+      {/* Comparison Table */}
+      <Paper sx={{ p: 3.5, mb: 8, overflow: 'hidden' }}>
+        <Typography variant="h4" gutterBottom>
+          Service Comparison
+        </Typography>
+        <Typography variant="subtitle1" color="text.secondary" sx={{ mb: 3 }}>
+          Compare our comprehensive service offering with other providers. Green checkmarks indicate included features, red X's indicate features not included.
+        </Typography>
+        <Box sx={{ overflowX: 'auto', mx: -3.5, px: 3.5 }}>
+          <Table>
+            <TableHead>
+              <TableRow sx={{ 
+                '& th': { 
+                  fontWeight: 'bold', 
+                  whiteSpace: 'nowrap',
+                  backgroundColor: 'primary.main',
+                  color: 'white',
+                  fontSize: '1rem'
+                } 
+              }}>
+                <TableCell>Company</TableCell>
+                <TableCell>Pricing</TableCell>
+                <TableCell>Turnaround Time</TableCell>
+                <TableCell sx={{ minWidth: 400 }}>Deliverables</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              <TableRow sx={{ 
+                '& td': { 
+                  borderBottom: '1px solid rgba(224, 224, 224, 1)',
+                  backgroundColor: 'success.light',
+                  color: 'white'
+                } 
+              }}>
+                <TableCell sx={{ 
+                  whiteSpace: 'nowrap',
+                  fontWeight: 'bold'
+                }}>Freedom2Operate</TableCell>
+                <TableCell>$500 flat rate</TableCell>
+                <TableCell>4-8 hours</TableCell>
+                <TableCell>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CheckIcon sx={{ color: 'white' }} />
+                      <Typography>PDF Report</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CheckIcon sx={{ color: 'white' }} />
+                      <Typography>Dashboard Access</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CheckIcon sx={{ color: 'white' }} />
+                      <Typography>PDF Copies of References</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CheckIcon sx={{ color: 'white' }} />
+                      <Typography>Feature Analysis</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CheckIcon sx={{ color: 'white' }} />
+                      <Typography>Risk Assessment</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CheckIcon sx={{ color: 'white' }} />
+                      <Typography>Machine Translations</Typography>
+                    </Box>
+                  </Box>
+                </TableCell>
+              </TableRow>
+              <TableRow sx={{
+                '&:nth-of-type(odd)': {
+                  backgroundColor: 'action.hover',
+                },
+                '&:hover': {
+                  backgroundColor: 'action.selected'
+                }
+              }}>
+                <TableCell sx={{ fontWeight: 500 }}>Cardinal Intellectual Property</TableCell>
+                <TableCell>Quote-based</TableCell>
+                <TableCell>Varies depending on scope</TableCell>
+                <TableCell>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CheckIcon sx={{ color: 'success.main' }} />
+                      <Typography>PDF Report</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CheckIcon sx={{ color: 'success.main' }} />
+                      <Typography>Dashboard Access</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CheckIcon sx={{ color: 'success.main' }} />
+                      <Typography>PDF Copies of References</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CloseIcon sx={{ color: 'error.main' }} />
+                      <Typography>Feature Analysis</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CloseIcon sx={{ color: 'error.main' }} />
+                      <Typography>Risk Assessment</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CloseIcon sx={{ color: 'error.main' }} />
+                      <Typography>Machine Translations</Typography>
+                    </Box>
+                  </Box>
+                </TableCell>
+              </TableRow>
+              <TableRow sx={{
+                '&:nth-of-type(even)': {
+                  backgroundColor: 'action.hover',
+                },
+                '&:hover': {
+                  backgroundColor: 'action.selected'
+                }
+              }}>
+                <TableCell sx={{ fontWeight: 500 }}>Sagacious IP</TableCell>
+                <TableCell>Quote-based</TableCell>
+                <TableCell>Varies depending on scope</TableCell>
+                <TableCell>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CheckIcon sx={{ color: 'success.main' }} />
+                      <Typography>PDF Report</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CloseIcon sx={{ color: 'error.main' }} />
+                      <Typography>Dashboard Access</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CloseIcon sx={{ color: 'error.main' }} />
+                      <Typography>PDF Copies of References</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CheckIcon sx={{ color: 'success.main' }} />
+                      <Typography>Feature Analysis</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CheckIcon sx={{ color: 'success.main' }} />
+                      <Typography>Risk Assessment</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CloseIcon sx={{ color: 'error.main' }} />
+                      <Typography>Machine Translations</Typography>
+                    </Box>
+                  </Box>
+                </TableCell>
+              </TableRow>
+              <TableRow sx={{
+                '&:nth-of-type(odd)': {
+                  backgroundColor: 'action.hover',
+                },
+                '&:hover': {
+                  backgroundColor: 'action.selected'
+                }
+              }}>
+                <TableCell sx={{ fontWeight: 500 }}>Cognition IP</TableCell>
+                <TableCell>Quote-based</TableCell>
+                <TableCell>Varies depending on scope</TableCell>
+                <TableCell>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CheckIcon sx={{ color: 'success.main' }} />
+                      <Typography>PDF Report</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CloseIcon sx={{ color: 'error.main' }} />
+                      <Typography>Dashboard Access</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CloseIcon sx={{ color: 'error.main' }} />
+                      <Typography>PDF Copies of References</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CheckIcon sx={{ color: 'success.main' }} />
+                      <Typography>Feature Analysis</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CheckIcon sx={{ color: 'success.main' }} />
+                      <Typography>Risk Assessment</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CloseIcon sx={{ color: 'error.main' }} />
+                      <Typography>Machine Translations</Typography>
+                    </Box>
+                  </Box>
+                </TableCell>
+              </TableRow>
+              <TableRow sx={{
+                '&:nth-of-type(even)': {
+                  backgroundColor: 'action.hover',
+                },
+                '&:hover': {
+                  backgroundColor: 'action.selected'
+                }
+              }}>
+                <TableCell sx={{ fontWeight: 500 }}>AcclaimIP</TableCell>
+                <TableCell>Software subscription-based</TableCell>
+                <TableCell>Self-service, instant results</TableCell>
+                <TableCell>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CheckIcon sx={{ color: 'success.main' }} />
+                      <Typography>PDF Report</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CheckIcon sx={{ color: 'success.main' }} />
+                      <Typography>Dashboard Access</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CheckIcon sx={{ color: 'success.main' }} />
+                      <Typography>PDF Copies of References</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CloseIcon sx={{ color: 'error.main' }} />
+                      <Typography>Feature Analysis</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CloseIcon sx={{ color: 'error.main' }} />
+                      <Typography>Risk Assessment</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CloseIcon sx={{ color: 'error.main' }} />
+                      <Typography>Machine Translations</Typography>
+                    </Box>
+                  </Box>
+                </TableCell>
+              </TableRow>
+              <TableRow sx={{
+                '&:nth-of-type(odd)': {
+                  backgroundColor: 'action.hover',
+                },
+                '&:hover': {
+                  backgroundColor: 'action.selected'
+                }
+              }}>
+                <TableCell sx={{ fontWeight: 500 }}>NovoTech Patent Firm</TableCell>
+                <TableCell>Quote-based</TableCell>
+                <TableCell>Varies depending on scope</TableCell>
+                <TableCell>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CheckIcon sx={{ color: 'success.main' }} />
+                      <Typography>PDF Report</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CloseIcon sx={{ color: 'error.main' }} />
+                      <Typography>Dashboard Access</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CheckIcon sx={{ color: 'success.main' }} />
+                      <Typography>PDF Copies of References</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CheckIcon sx={{ color: 'success.main' }} />
+                      <Typography>Feature Analysis</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CheckIcon sx={{ color: 'success.main' }} />
+                      <Typography>Risk Assessment</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CloseIcon sx={{ color: 'error.main' }} />
+                      <Typography>Machine Translations</Typography>
+                    </Box>
+                  </Box>
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </Box>
+      </Paper>
+
       {/* What is FTO Section */}
-      <Paper sx={{ p: 4, mb: 8 }}>
+      <Paper sx={{ p: 3.5, mb: 8 }}>
         <Typography variant="h4" gutterBottom>
           What is a <TextLogo /> Search?
         </Typography>
@@ -272,7 +563,7 @@ const LandingPage = () => {
           your product or technology can be commercially used without infringing valid intellectual property rights of others, 
           particularly patents.
         </Typography>
-        <Grid container spacing={4} sx={{ mt: 2 }}>
+        <Grid container spacing={3} sx={{ mt: 2 }}>
           <Grid item xs={12} md={4}>
             <Typography variant="h6" gutterBottom sx={{ color: 'primary.main' }}>
               What We Search For
@@ -304,7 +595,7 @@ const LandingPage = () => {
       </Paper>
 
       {/* Security Section */}
-      <Paper sx={{ p: 4, mb: 8 }}>
+      <Paper sx={{ p: 3.5, mb: 8 }}>
         <Typography variant="h4" gutterBottom>
           Your Data Security is Our Priority
         </Typography>
@@ -322,7 +613,7 @@ const LandingPage = () => {
       </Paper>
 
       {/* Team Expertise Section */}
-      <Paper sx={{ p: 4, mb: 8 }}>
+      <Paper sx={{ p: 3.5, mb: 8 }}>
         <Typography variant="h4" gutterBottom>
           Expert Search Team
         </Typography>
@@ -348,7 +639,7 @@ const LandingPage = () => {
       </Paper>
 
       {/* Detailed Product Features */}
-      <Paper sx={{ p: 4, mb: 8 }}>
+      <Paper sx={{ p: 3.5, mb: 8 }}>
         <Typography variant="h4" gutterBottom>
           Comprehensive Search Package
         </Typography>
@@ -397,7 +688,7 @@ const LandingPage = () => {
       </Paper>
 
       {/* Pricing Section */}
-      <Paper sx={{ p: 4, mb: 8 }}>
+      <Paper sx={{ p: 3.5, mb: 8 }}>
         <Box sx={{ textAlign: 'center' }}>
           <Typography variant="h4" gutterBottom>
             Simple, Transparent, and Streamlined
@@ -469,13 +760,31 @@ const LandingPage = () => {
           <Button
             variant="contained"
             size="large"
-            onClick={() => navigate('/submit')}
+            onClick={handleStartSearch}
             sx={{ mt: 2 }}
           >
             Get Started Now
           </Button>
         </Box>
       </Paper>
+
+      {/* Contact Form Section */}
+      <Container maxWidth="lg" sx={{ mb: 8 }}>
+        <Box sx={{ textAlign: 'center', mb: 4 }}>
+          <Typography variant="h4" gutterBottom>
+            Get in Touch
+          </Typography>
+          <Typography variant="subtitle1" color="text.secondary">
+            Have questions? We'd love to hear from you. Send us a message and we'll respond as soon as possible.
+          </Typography>
+        </Box>
+        <ContactForm />
+      </Container>
+      <NDAForm 
+        open={ndaOpen} 
+        onClose={() => setNdaOpen(false)}
+        userDetails={location.state?.userDetails}
+      />
     </Box>
   );
 };

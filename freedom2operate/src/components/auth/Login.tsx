@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import { useNavigate, Link as RouterLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import {
   Container,
@@ -20,6 +20,18 @@ const Login = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
 
+  const location = useLocation();
+  const state = location.state as { 
+    returnUrl?: string;
+    openNda?: boolean;
+    ndaData?: {
+      firstName: string;
+      lastName: string;
+      companyName?: string;
+      title: string;
+    };
+  } | null;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -27,7 +39,25 @@ const Login = () => {
       setError('');
       setLoading(true);
       await login(email, password);
-      navigate('/dashboard');
+      
+      // If we have NDA data and returnUrl, navigate back to submission
+      if (state?.openNda && state.ndaData && state.returnUrl) {
+        navigate('/', { 
+          state: { 
+            openNda: true,
+            userDetails: {
+              firstName: state.ndaData.firstName,
+              lastName: state.ndaData.lastName,
+              companyName: state.ndaData.companyName,
+              title: state.ndaData.title
+            }
+          }
+        });
+      } else if (state?.returnUrl) {
+        navigate(state.returnUrl);
+      } else {
+        navigate('/dashboard');
+      }
     } catch {
       setError('Failed to sign in. Please check your credentials.');
     } finally {
@@ -55,6 +85,12 @@ const Login = () => {
               autoFocus
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              sx={{
+                '& .MuiInputLabel-root': {
+                  backgroundColor: 'white',
+                  padding: '0 4px',
+                }
+              }}
             />
             <TextField
               margin="normal"
@@ -67,6 +103,12 @@ const Login = () => {
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              sx={{
+                '& .MuiInputLabel-root': {
+                  backgroundColor: 'white',
+                  padding: '0 4px',
+                }
+              }}
             />
             <Button
               type="submit"

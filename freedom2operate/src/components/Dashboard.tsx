@@ -21,6 +21,7 @@ import {
   DialogActions,
   Grid,
   Chip,
+  Link,
 } from '@mui/material';
 import VideoCallRequest from './VideoCallRequest';
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
@@ -46,6 +47,7 @@ const toTitleCase = (str: string) => {
 };
 
 import { ProjectStatus } from './ProjectProgress';
+import { FormStep } from '../types';
 
 interface ReferenceData {
   referenceNumber: string;
@@ -53,6 +55,16 @@ interface ReferenceData {
   status: ProjectStatus;
   projectName: string;
   searchType: 'fto' | 'patentability';
+  draftProgress?: {
+    currentStep: FormStep;
+    completedSteps: FormStep[];
+    lastModified: Date;
+  };
+  ndaInfo?: {
+    id: string;
+    signedAt: Date;
+    pdfUrl?: string;
+  };
 }
 
 interface ProfileFormData {
@@ -97,7 +109,7 @@ const Dashboard = () => {
       if (!currentUser) return;
 
       try {
-        // Fetch submissions
+        // Fetch submissions and their NDAs
         const submissionsQuery = query(
           collection(db, 'submissions'),
           where('userId', '==', currentUser.uid),
@@ -107,16 +119,41 @@ const Dashboard = () => {
         const submissionsSnapshot = await getDocs(submissionsQuery);
         const refsData: ReferenceData[] = [];
         
-        submissionsSnapshot.forEach((doc) => {
+        for (const doc of submissionsSnapshot.docs) {
           const data = doc.data();
+          let ndaInfo;
+
+          // If submission has an NDA ID, fetch the NDA details
+          if (data.ndaId) {
+            const ndaQuery = query(
+              collection(db, 'ndaAgreements'),
+              where('id', '==', data.ndaId)
+            );
+            const ndaSnapshot = await getDocs(ndaQuery);
+            if (!ndaSnapshot.empty) {
+              const ndaData = ndaSnapshot.docs[0].data();
+              ndaInfo = {
+                id: ndaData.id,
+                signedAt: new Date(ndaData.signedAt.toDate()),
+                pdfUrl: ndaData.pdfUrl
+              };
+            }
+          }
+
           refsData.push({
             referenceNumber: data.referenceNumber,
             createdAt: new Date(data.createdAt.toDate()).toLocaleDateString(),
             status: data.status || 'Draft',
             projectName: data.projectName || 'Untitled Project',
             searchType: data.searchType || 'fto',
+            draftProgress: data.status === 'Draft' ? {
+              currentStep: data.currentStep || 'Basic Information',
+              completedSteps: data.completedSteps || [],
+              lastModified: new Date(data.lastModified?.toDate() || data.createdAt.toDate())
+            } : undefined,
+            ndaInfo
           });
-        });
+        }
 
         setReferences(refsData);
 
@@ -315,6 +352,7 @@ const Dashboard = () => {
                         <TableCell>Type</TableCell>
                         <TableCell>Created Date</TableCell>
                         <TableCell>Status</TableCell>
+                        <TableCell>NDA</TableCell>
                         <TableCell>Actions</TableCell>
                       </TableRow>
                     </TableHead>
@@ -339,13 +377,40 @@ const Dashboard = () => {
                             />
                           </TableCell>
                           <TableCell>
-                            {ref.status === 'Draft' && (
-                              <Button
-                                size="small"
-                                onClick={() => navigate(`/submit?draft=${ref.referenceNumber}`)}
+                            {ref.ndaInfo?.pdfUrl ? (
+                              <Link
+                                href={ref.ndaInfo.pdfUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                sx={{ textDecoration: 'none' }}
                               >
-                                Continue
-                              </Button>
+                                <Button size="small" variant="outlined">
+                                  Download NDA
+                                </Button>
+                              </Link>
+                            ) : (
+                              <Typography variant="caption" color="text.secondary">
+                                No NDA
+                              </Typography>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {ref.status === 'Draft' && (
+                              <Box>
+                                <Typography variant="caption" color="text.secondary" display="block">
+                                  Last step: {ref.draftProgress?.currentStep}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                                  Last modified: {ref.draftProgress?.lastModified.toLocaleDateString()}
+                                </Typography>
+                                <Button
+                                  size="small"
+                                  variant="contained"
+                                  onClick={() => navigate(`/submit?draft=${ref.referenceNumber}`)}
+                                >
+                                  Continue Draft
+                                </Button>
+                              </Box>
                             )}
                           </TableCell>
                         </TableRow>

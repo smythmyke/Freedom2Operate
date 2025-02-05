@@ -17,6 +17,7 @@ interface UserProfile {
   email: string;
   createdAt: string;
   lastLoginAt?: string;
+  role?: 'admin' | 'user';
 }
 
 interface AuthContextType {
@@ -27,6 +28,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   updateProfile: (data: Partial<UserProfile>) => Promise<void>;
   loading: boolean;
+  isAdmin: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -47,13 +49,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const fetchUserProfile = async (uid: string) => {
     try {
       const userDoc = doc(db, 'users', uid);
       const docSnap = await getDoc(userDoc);
       if (docSnap.exists()) {
-        setUserProfile(docSnap.data() as UserProfile);
+        const profile = docSnap.data() as UserProfile;
+        setUserProfile(profile);
+        setIsAdmin(profile.role === 'admin');
       }
     } catch (error) {
       console.error('Error fetching user profile:', error);
@@ -85,12 +90,25 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const login = async (email: string, password: string) => {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      // Update last login time
+      
+      // Fetch user profile first
       const userRef = doc(db, 'users', userCredential.user.uid);
+      const userDoc = await getDoc(userRef);
+      
+      if (!userDoc.exists()) {
+        throw new Error('User profile not found');
+      }
+
+      // Update last login time
       await updateDoc(userRef, {
         lastLoginAt: new Date().toISOString()
       });
-      await fetchUserProfile(userCredential.user.uid);
+
+      // Set user profile in state
+      const profile = userDoc.data() as UserProfile;
+      setUserProfile(profile);
+      setIsAdmin(profile.role === 'admin');
+
     } catch (error) {
       console.error('Error logging in:', error);
       if (error instanceof Error) {
@@ -147,7 +165,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     login,
     logout,
     updateProfile,
-    loading
+    loading,
+    isAdmin
   };
 
   return (
