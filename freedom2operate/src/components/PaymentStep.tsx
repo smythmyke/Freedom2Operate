@@ -58,6 +58,9 @@ const PaymentStep = ({ amount, onSuccess, onError }: PaymentStepProps) => {
           createOrder={(_data, actions) => {
             return actions.order.create({
               intent: "CAPTURE",
+              application_context: {
+                shipping_preference: "NO_SHIPPING"
+              },
               purchase_units: [
                 {
                   amount: {
