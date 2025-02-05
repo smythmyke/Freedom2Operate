@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import DownloadIcon from '@mui/icons-material/Download';
 import {
   Container,
   Typography,
@@ -331,15 +332,15 @@ const Dashboard = () => {
           <PaymentHistory payments={payments} />
         </Grid>
 
-        {/* References Section */}
-        <Grid item xs={12} md={6}>
+        {/* Projects Section */}
+        <Grid item xs={12}>
           <Paper sx={{ p: 3 }}>
             <Typography variant="h6" gutterBottom>
-              My Reference Numbers
+              My Projects
             </Typography>
             {references.length === 0 ? (
               <Typography color="textSecondary">
-                No reference numbers found. Submit a new request to get started.
+                No projects found. Submit a new request to get started.
               </Typography>
             ) : (
               <>
@@ -352,13 +353,17 @@ const Dashboard = () => {
                         <TableCell>Type</TableCell>
                         <TableCell>Created Date</TableCell>
                         <TableCell>Status</TableCell>
-                        <TableCell>NDA</TableCell>
                         <TableCell>Actions</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
                       {references.map((ref) => (
-                        <TableRow key={ref.referenceNumber}>
+                        <TableRow 
+                          key={ref.referenceNumber}
+                          sx={{
+                            backgroundColor: ref.status === 'Draft' ? 'action.hover' : 'inherit'
+                          }}
+                        >
                           <TableCell>{toTitleCase(ref.projectName)}</TableCell>
                           <TableCell>{ref.referenceNumber}</TableCell>
                           <TableCell>{ref.searchType === 'fto' ? 'F2O' : 'Patentability'}</TableCell>
@@ -377,41 +382,31 @@ const Dashboard = () => {
                             />
                           </TableCell>
                           <TableCell>
-                            {ref.ndaInfo?.pdfUrl ? (
-                              <Link
-                                href={ref.ndaInfo.pdfUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                sx={{ textDecoration: 'none' }}
-                              >
-                                <Button size="small" variant="outlined">
-                                  Download NDA
-                                </Button>
-                              </Link>
-                            ) : (
-                              <Typography variant="caption" color="text.secondary">
-                                No NDA
-                              </Typography>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            {ref.status === 'Draft' && (
-                              <Box>
-                                <Typography variant="caption" color="text.secondary" display="block">
-                                  Last step: {ref.draftProgress?.currentStep}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
-                                  Last modified: {ref.draftProgress?.lastModified.toLocaleDateString()}
-                                </Typography>
+                            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                              {ref.status === 'Draft' && (
+                                <>
+                                  <Typography variant="caption" color="text.secondary">
+                                    Last step: {ref.draftProgress?.currentStep}
+                                  </Typography>
+                                  <Button
+                                    size="small"
+                                    variant="contained"
+                                    onClick={() => navigate(`/submit?draft=${ref.referenceNumber}`)}
+                                  >
+                                    Continue
+                                  </Button>
+                                </>
+                              )}
+                              {ref.status !== 'Draft' && (
                                 <Button
                                   size="small"
-                                  variant="contained"
-                                  onClick={() => navigate(`/submit?draft=${ref.referenceNumber}`)}
+                                  variant="outlined"
+                                  onClick={() => navigate(`/project/${ref.referenceNumber}`)}
                                 >
-                                  Continue Draft
+                                  View Details
                                 </Button>
-                              </Box>
-                            )}
+                              )}
+                            </Box>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -424,12 +419,69 @@ const Dashboard = () => {
                   </Typography>
                   <Chip label="Draft" size="small" sx={{ mr: 1 }} />
                   <Chip label="Submitted" color="info" size="small" sx={{ mr: 1 }} />
-                  <Chip label="Pending" color="info" size="small" sx={{ mr: 1 }} />
                   <Chip label="In Progress" color="primary" size="small" sx={{ mr: 1 }} />
                   <Chip label="On Hold" color="warning" size="small" sx={{ mr: 1 }} />
                   <Chip label="Completed" color="success" size="small" />
                 </Box>
               </>
+            )}
+          </Paper>
+        </Grid>
+
+        {/* NDAs Section */}
+        <Grid item xs={12}>
+          <Paper sx={{ p: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              My NDAs
+            </Typography>
+            {references.filter(ref => ref.ndaInfo).length === 0 ? (
+              <Typography color="textSecondary">
+                No NDAs found. NDAs will appear here once signed.
+              </Typography>
+            ) : (
+              <TableContainer>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Project Name</TableCell>
+                      <TableCell>Reference Number</TableCell>
+                      <TableCell>Signed Date</TableCell>
+                      <TableCell>Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {references
+                      .filter(ref => ref.ndaInfo)
+                      .map((ref) => (
+                        <TableRow key={ref.ndaInfo?.id}>
+                          <TableCell>{toTitleCase(ref.projectName)}</TableCell>
+                          <TableCell>{ref.referenceNumber}</TableCell>
+                          <TableCell>
+                            {ref.ndaInfo?.signedAt.toLocaleDateString()}
+                          </TableCell>
+                          <TableCell>
+                            {ref.ndaInfo?.pdfUrl && (
+                              <Link
+                                href={ref.ndaInfo.pdfUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                sx={{ textDecoration: 'none' }}
+                              >
+                                <Button 
+                                  size="small" 
+                                  variant="outlined"
+                                  startIcon={<DownloadIcon />}
+                                >
+                                  Download NDA
+                                </Button>
+                              </Link>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
             )}
           </Paper>
         </Grid>
