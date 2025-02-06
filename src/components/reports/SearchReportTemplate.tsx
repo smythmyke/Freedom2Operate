@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { db } from '../../firebase';
 import {
-  collection,
   doc,
   getDoc,
   setDoc,
@@ -23,12 +22,7 @@ import {
 import {
   SearchReport,
   Feature,
-  Citation,
-  Submission,
-  SearchScope,
-  MarketAnalysis,
-  AlternativeApproach,
-  SearchDocumentation
+  Submission
 } from '../../types';
 import styles from './SearchReportTemplate.module.css';
 
