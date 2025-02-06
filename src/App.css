@@ -1,0 +1,19 @@
+/* Theme colors */
+:root {
+  --heading-color: #1a237e;
+}
+
+/* Global heading styles */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--heading-color);
+}
+
+/* Ensure MUI Typography components inherit theme colors when used as headings */
+.MuiTypography-h1,
+.MuiTypography-h2,
+.MuiTypography-h3,
+.MuiTypography-h4,
+.MuiTypography-h5,
+.MuiTypography-h6 {
+  color: var(--heading-color);
+}
