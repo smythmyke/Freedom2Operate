@@ -18,8 +18,10 @@ service cloud.firestore {
       // Allow users to list their own submissions, admins can list all
       allow list: if request.auth != null && (
         isAdmin() || 
-        request.query.filters.size() > 0 && 
-        request.query.filters[0] == ['userId', '==', request.auth.uid]
+        (request.query.filters.size() > 0 && 
+         request.query.filters.hasAll([
+           ['userId', '==', request.auth.uid]
+         ]))
       );
       
       // Allow users to read their own submissions, admins can read all
@@ -32,17 +34,7 @@ service cloud.firestore {
       
       // Allow users to create submissions if they're authenticated and the userId matches their auth id
       allow create: if request.auth != null 
-        && request.resource.data.userId == request.auth.uid
-        && (
-          // For submitted forms
-          (request.resource.data.status == 'Submitted')
-          ||
-          // For pending review submissions
-          (request.resource.data.status == 'Pending Review')
-          ||
-          // For drafts
-          (request.resource.data.status == 'Draft')
-        );
+        && request.resource.data.userId == request.auth.uid;
       
       // Allow users to update their own drafts, admins can update any submission
       allow update: if request.auth != null && (
@@ -62,7 +54,13 @@ service cloud.firestore {
 
     match /payments/{paymentId} {
       // Allow users to list and read their own payments
-      allow list: if request.auth != null;
+      allow list: if request.auth != null && (
+        isAdmin() || 
+        (request.query.filters.size() > 0 && 
+         request.query.filters.hasAll([
+           ['userId', '==', request.auth.uid]
+         ]))
+      );
       allow get: if request.auth != null && 
         (resource.data.userId == request.auth.uid || isAdmin());
       
@@ -83,7 +81,13 @@ service cloud.firestore {
 
     match /ndaAgreements/{ndaId} {
       // Allow users to list and read their own NDAs
-      allow list: if request.auth != null;
+      allow list: if request.auth != null && (
+        isAdmin() || 
+        (request.query.filters.size() > 0 && 
+         request.query.filters.hasAll([
+           ['userId', '==', request.auth.uid]
+         ]))
+      );
       allow get: if request.auth != null && 
         (resource.data.userId == request.auth.uid || isAdmin());
       
@@ -108,7 +112,13 @@ service cloud.firestore {
 
     match /progress/{progressId} {
       // Allow users to list and read their submission progress
-      allow list: if request.auth != null;
+      allow list: if request.auth != null && (
+        isAdmin() || 
+        (request.query.filters.size() > 0 && 
+         request.query.filters.hasAll([
+           ['userId', '==', request.auth.uid]
+         ]))
+      );
       allow get: if request.auth != null && 
         ((resource.data.userId == request.auth.uid && 
           (resource.data.status == 'Submitted' || 
