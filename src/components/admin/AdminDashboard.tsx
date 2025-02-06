@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
 import {
   Container,
   Typography,
@@ -29,7 +30,7 @@ import {
   IconButton,
 } from '@mui/material';
 import DescriptionIcon from '@mui/icons-material/Description';
-import { collection, query, getDocs, orderBy, updateDoc, doc, addDoc, where } from 'firebase/firestore';
+import { collection, query, getDocs, orderBy, updateDoc, doc, addDoc, where, getDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { toTitleCase } from '../../utils/formatting';
 import type { ProjectStatus, PaymentStatus, Submission, DraftProgress, NDAInfo } from '../../types';
@@ -49,6 +50,7 @@ interface NDAWithProjects extends NDAInfo {
 type DialogType = 'status' | 'report' | null;
 
 const AdminDashboard = () => {
+  const { currentUser, isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState(0);
   const [submissions, setSubmissions] = useState<EnhancedSubmission[]>([]);
   const [ndaAgreements, setNdaAgreements] = useState<NDAWithProjects[]>([]);
@@ -75,25 +77,29 @@ const AdminDashboard = () => {
         console.log('NDA snapshot:', ndaSnapshot.docs.map(doc => ({ id: doc.id, data: doc.data() })));
         const ndaData: NDAWithProjects[] = [];
         
-        // Get all unique user IDs from NDAs
+        // Get all unique user IDs from NDAs and fetch their emails
         const userIds = new Set(ndaSnapshot.docs.map(doc => doc.data().userId));
+        const userEmails = new Map();
         
-        // Fetch user emails in batch
-        const usersQuery = query(
-          collection(db, 'users'),
-          where('uid', 'in', Array.from(userIds))
-        );
-        const userSnapshot = await getDocs(usersQuery);
-        console.log('User snapshot:', userSnapshot.docs.map(doc => ({ id: doc.id, data: doc.data() })));
-        const userEmails = new Map(
-          userSnapshot.docs.map(doc => [doc.data().uid, doc.data().email])
-        );
+        for (const userId of userIds) {
+          const userDoc = await getDoc(doc(db, 'users', userId));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            userEmails.set(userId, userData.email);
+          }
+        }
 
-        // Fetch all submissions
-        const submissionsQuery = query(
-          collection(db, 'submissions'),
-          orderBy('createdAt', 'desc')
-        );
+        // Fetch all submissions - no status filter for admins
+        const submissionsQuery = isAdmin || !currentUser ? 
+          query(
+            collection(db, 'submissions'),
+            orderBy('createdAt', 'desc')
+          ) :
+          query(
+            collection(db, 'submissions'),
+            where('userId', '==', currentUser.uid),
+            orderBy('createdAt', 'desc')
+          );
         const submissionsSnapshot = await getDocs(submissionsQuery);
         console.log('Submissions snapshot:', submissionsSnapshot.docs.map(doc => ({ id: doc.id, data: doc.data() })));
         const submissionsData: EnhancedSubmission[] = [];
@@ -185,8 +191,10 @@ const AdminDashboard = () => {
       }
     };
 
-    fetchData();
-  }, []);
+    if (currentUser) {
+      fetchData();
+    }
+  }, [currentUser, isAdmin]);
 
   const handleCloseDialog = () => {
     setDialogType(null);
