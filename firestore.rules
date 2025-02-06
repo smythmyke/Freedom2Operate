@@ -15,8 +15,12 @@ service cloud.firestore {
     }
 
     match /submissions/{submissionId} {
-      // Allow users to list their own submissions
-      allow list: if request.auth != null;
+      // Allow users to list their own submissions, admins can list all
+      allow list: if request.auth != null && (
+        isAdmin() || 
+        request.query.filters.size() > 0 && 
+        request.query.filters[0] == ['userId', '==', request.auth.uid]
+      );
       
       // Allow users to read their own submissions, admins can read all
       allow get: if request.auth != null && 
