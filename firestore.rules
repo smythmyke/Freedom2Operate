@@ -19,9 +19,10 @@ service cloud.firestore {
       allow list: if request.auth != null && (
         isAdmin() || 
         (request.query.filters.size() > 0 && 
-         request.query.filters.hasAll([
+         request.query.filters.hasAny([
            ['userId', '==', request.auth.uid]
-         ]))
+         ]) &&
+         request.query.orderBy == 'createdAt')
       );
       
       // Allow users to read their own submissions, admins can read all
