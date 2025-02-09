@@ -74,9 +74,9 @@ const ProjectProgress: React.FC<ProjectProgressProps> = ({
   referenceNumber
 }) => {
   const [statusUpdates, setStatusUpdates] = useState<StatusUpdate[]>([]);
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile } = useAuth();
   useEffect(() => {
-    if (!currentUser || !referenceNumber) return;
+    if (!currentUser || !userProfile || !referenceNumber) return;
 
     // Subscribe to status updates
     const updatesQuery = query(

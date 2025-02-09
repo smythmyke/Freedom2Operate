@@ -26,12 +26,14 @@ import {
   Tab,
   Tabs,
   IconButton,
+  TextField,
 } from '@mui/material';
 import DescriptionIcon from '@mui/icons-material/Description';
-import { collection, query, getDocs, orderBy, getDoc, doc } from 'firebase/firestore';
+import { collection, query, getDocs, orderBy, getDoc, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { toTitleCase } from '../../utils/formatting';
-import type { ProjectStatus, Submission, DraftProgress, NDAInfo } from '../../types';
+import type { ProjectStatus, PaymentStatus, Submission, DraftProgress, NDAInfo, Feature } from '../../types';
+import type { FieldValue } from 'firebase/firestore';
 import SearchReportTemplate from '../reports/SearchReportTemplate';
 import generateSampleReportPdf from '../../utils/sampleReportPdfGenerator';
 import { sampleReport } from '../../data/sampleReport';
@@ -50,18 +52,44 @@ interface NDAWithProjects extends NDAInfo {
 type DialogType = 'status' | 'report' | null;
 
 const AdminDashboard = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile, isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState(0);
   const [submissions, setSubmissions] = useState<EnhancedSubmission[]>([]);
   const [ndaAgreements, setNdaAgreements] = useState<NDAWithProjects[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<ProjectStatus | 'all'>('all');
   const [selectedSubmission, setSelectedSubmission] = useState<EnhancedSubmission | null>(null);
-  const [dialogType, setDialogType] = useState<DialogType>(null);
+  const [dialogType, setDialogType] = useState<DialogType | 'new-report'>(null);
+  const [newReportData, setNewReportData] = useState<{
+    projectName: string;
+    searchType: 'fto' | 'patentability';
+    referenceNumber: string;
+  }>({
+    projectName: '',
+    searchType: 'fto',
+    referenceNumber: ''
+  });
 
+  // Auth check effect
+  useEffect(() => {
+    if (!currentUser || !userProfile) {
+      setError('Authentication required');
+      setLoading(false);
+      return;
+    }
+
+    if (!isAdmin) {
+      setError('Admin access required');
+      setLoading(false);
+      return;
+    }
+  }, [currentUser, userProfile, isAdmin]);
+
+  // Data fetching effect
   useEffect(() => {
     const fetchData = async () => {
-      if (!currentUser) return;
+      if (!currentUser || !userProfile || !isAdmin) return;
 
       try {
         // Fetch all NDAs first
@@ -140,13 +168,14 @@ const AdminDashboard = () => {
         setNdaAgreements(ndaData);
       } catch (error) {
         console.error('Error fetching data:', error);
+        setError('Failed to load dashboard data. Please try again.');
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, [currentUser]);
+  }, [currentUser, userProfile, isAdmin]);
 
   const handleCloseDialog = () => {
     setDialogType(null);
@@ -160,6 +189,21 @@ const AdminDashboard = () => {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
         <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
+        <Paper sx={{ p: 3, maxWidth: 400 }}>
+          <Typography variant="h6" color="error" gutterBottom>
+            {error}
+          </Typography>
+          <Typography color="text.secondary">
+            Please ensure you are logged in with the correct permissions.
+          </Typography>
+        </Paper>
       </Box>
     );
   }
@@ -180,7 +224,8 @@ const AdminDashboard = () => {
             Submissions
           </Typography>
 
-          <Paper sx={{ p: 2, mb: 3, display: 'flex', gap: 2 }}>
+          <Paper sx={{ p: 2, mb: 3, display: 'flex', gap: 2, justifyContent: 'space-between', alignItems: 'center' }}>
+            <Box display="flex" gap={2}>
             <FormControl sx={{ minWidth: 200 }}>
               <InputLabel>Filter by Status</InputLabel>
               <Select
@@ -198,6 +243,14 @@ const AdminDashboard = () => {
                 <MenuItem value="Completed">Completed</MenuItem>
               </Select>
             </FormControl>
+            </Box>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => setDialogType('new-report')}
+            >
+              Create New Report
+            </Button>
           </Paper>
 
           <TableContainer component={Paper}>
@@ -348,6 +401,158 @@ const AdminDashboard = () => {
         </>
       )}
 
+      {/* New Report Dialog */}
+      <Dialog
+        open={dialogType === 'new-report'}
+        onClose={handleCloseDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Create New Report</DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField
+              fullWidth
+              label="Project Name"
+              value={newReportData.projectName}
+              onChange={(e) => setNewReportData(prev => ({
+                ...prev,
+                projectName: e.target.value
+              }))}
+            />
+            <TextField
+              fullWidth
+              label="Reference Number"
+              value={newReportData.referenceNumber}
+              onChange={(e) => setNewReportData(prev => ({
+                ...prev,
+                referenceNumber: e.target.value
+              }))}
+            />
+            <FormControl fullWidth>
+              <InputLabel>Search Type</InputLabel>
+              <Select
+                value={newReportData.searchType}
+                label="Search Type"
+                onChange={(e) => setNewReportData(prev => ({
+                  ...prev,
+                  searchType: e.target.value as 'fto' | 'patentability'
+                }))}
+              >
+                <MenuItem value="fto">Freedom to Operate</MenuItem>
+                <MenuItem value="patentability">Patentability</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDialog}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={async () => {
+              try {
+                // Create a new submission document
+                const submissionRef = doc(collection(db, 'submissions'));
+                if (!currentUser?.uid) {
+                  throw new Error('No user ID available');
+                }
+
+                const timestamp = serverTimestamp();
+                const submissionData: Omit<Submission, 'createdAt'> & { createdAt: FieldValue } = {
+                  id: submissionRef.id,
+                  projectName: newReportData.projectName,
+                  referenceNumber: newReportData.referenceNumber,
+                  searchType: newReportData.searchType,
+                  status: 'Draft' as ProjectStatus,
+                  paymentStatus: 'Unpaid' as PaymentStatus,
+                  createdAt: timestamp,
+                  contactName: 'Admin Created',
+                  email: 'admin@f2o.com',
+                  phone: 'N/A',
+                  userId: currentUser.uid,
+                  inventionTitle: newReportData.projectName // Use project name as invention title for admin-created reports
+                };
+                await setDoc(submissionRef, submissionData);
+
+                // Create initial report
+                const reportRef = doc(db, 'reports', submissionRef.id);
+                const reportData: {
+                  id: string;
+                  submissionId: string;
+                  type: 'fto' | 'patentability';
+                  status: 'draft' | 'review' | 'final';
+                  createdAt: FieldValue;
+                  updatedAt: FieldValue;
+                  createdBy: string;
+                  features: Feature[];
+                  searchDate: Date;
+                  examiner: {
+                    name: string;
+                    title: string;
+                    qualifications: string[];
+                  };
+                  clientReference: string;
+                  executiveSummary: {
+                    text: string;
+                    keyFindings: string[];
+                    riskSummary: {
+                      overall: 'Low';
+                      byFeature: Record<string, never>;
+                    };
+                  };
+                } = {
+                  id: submissionRef.id,
+                  submissionId: submissionRef.id,
+                  type: newReportData.searchType,
+                  status: 'draft',
+                  createdAt: serverTimestamp(),
+                  updatedAt: serverTimestamp(),
+                  createdBy: 'admin',
+                  features: [],
+                  searchDate: new Date(),
+                  examiner: {
+                    name: 'Pending Assignment',
+                    title: 'F2O Search Analyst',
+                    qualifications: []
+                  },
+                  clientReference: newReportData.referenceNumber,
+                  executiveSummary: {
+                    text: '',
+                    keyFindings: [],
+                    riskSummary: {
+                      overall: 'Low',
+                      byFeature: {}
+                    }
+                  }
+                };
+                await setDoc(reportRef, reportData);
+
+                // Update submissions list
+                // Create an EnhancedSubmission with the correct date string
+                const enhancedSubmission: EnhancedSubmission = {
+                  ...submissionData,
+                  createdAt: new Date().toLocaleDateString(),
+                  status: 'Draft',
+                  paymentStatus: 'Unpaid'
+                };
+                setSubmissions(prev => [enhancedSubmission, ...prev]);
+
+                handleCloseDialog();
+                
+                // Open the new report
+                setSelectedSubmission(enhancedSubmission);
+                setDialogType('report');
+              } catch (error) {
+                console.error('Error creating report:', error);
+                // TODO: Show error message to user
+              }
+            }}
+          >
+            Create Report
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Report Dialog */}
       <Dialog
         open={dialogType === 'report'}
@@ -362,13 +567,24 @@ const AdminDashboard = () => {
         </DialogTitle>
         <DialogContent>
           {selectedSubmission && (
-            <Box sx={{ mt: 2 }}>
-              <SearchReportTemplate 
-                submissionId={selectedSubmission.id}
-                initialData={selectedSubmission.id === 'sample-report-001' ? sampleReport : undefined}
-                readOnly={selectedSubmission.id === 'sample-report-001'}
-              />
-            </Box>
+            <>
+              <Box sx={{ mt: 2 }}>
+                <SearchReportTemplate 
+                  submissionId={selectedSubmission.id}
+                  initialData={selectedSubmission.id === 'sample-report-001' ? sampleReport : undefined}
+                  readOnly={selectedSubmission.id === 'sample-report-001'}
+                />
+              </Box>
+              <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}>
+                <Button 
+                  variant="outlined" 
+                  onClick={handleCloseDialog}
+                  size="large"
+                >
+                  Close Report
+                </Button>
+              </Box>
+            </>
           )}
         </DialogContent>
         <DialogActions>

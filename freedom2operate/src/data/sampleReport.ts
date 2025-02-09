@@ -14,7 +14,7 @@ export const sampleReport: SearchReport = {
   createdBy: 'admin',
   examiner: {
     name: 'John Smith',
-    title: 'Senior Patent Analyst',
+    title: 'Senior F2O Search Analyst',
     qualifications: ['USPTO Registered Patent Agent', 'M.S. Computer Science']
   },
   clientReference: 'CLIENT-2025-001',

@@ -100,7 +100,13 @@ const VideoCallRequest = ({ open, onClose, references }: VideoCallRequestProps) 
         files.map(async (file) => {
           try {
             const storageRef = ref(storage, `video-call-docs/${Date.now()}-${file.name}`);
-            const snapshot = await uploadBytes(storageRef, file);
+            const metadata = {
+              customMetadata: {
+                userId: currentUser?.uid || '',
+                isPublic: 'false'
+              }
+            };
+            const snapshot = await uploadBytes(storageRef, file, metadata);
             return await getDownloadURL(snapshot.ref);
           } catch (uploadError) {
             console.error('File upload error:', uploadError);

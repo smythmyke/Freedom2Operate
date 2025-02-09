@@ -2,18 +2,21 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    function isAdmin() {
-      return request.auth != null && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-
     function isAuthenticated() {
       return request.auth != null;
     }
 
+    function isAdmin() {
+      return request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
     match /users/{userId} {
-      // Allow users to read and write their own document
-      allow read: if request.auth != null && userId == request.auth.uid;
+      // Allow users to read their own document and admins to read any document
+      allow read: if request.auth != null && (
+        userId == request.auth.uid || 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+      );
       // Allow creation with required fields
       allow create: if request.auth != null && userId == request.auth.uid
         && request.resource.data.keys().hasAll(['email', 'createdAt', 'role'])
@@ -53,7 +56,9 @@ service cloud.firestore {
         (resource.data.userId == request.auth.uid 
          && resource.data.status == 'Draft'
          && request.resource.data.status == 'Draft'
-         && request.resource.data.userId == request.auth.uid)
+         && request.resource.data.userId == request.auth.uid
+         && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'notes', 'updatedAt', 'ndaId']))
       );
       
       allow delete: if isAdmin();
@@ -87,7 +92,8 @@ service cloud.firestore {
       // Allow users to list and read their own NDAs
       allow list: if request.auth != null && (
         isAdmin() || 
-        request.query.filters.hasAll([['userId', '==', request.auth.uid]])
+        (request.query.filters.hasAll([['userId', '==', request.auth.uid], ['status', '==', 'signed']]) &&
+         request.query.orderBy == 'signedAt')
       );
       allow get: if request.auth != null && 
         (resource.data.userId == request.auth.uid || isAdmin());

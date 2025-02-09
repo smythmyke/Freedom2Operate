@@ -118,7 +118,7 @@ const SearchReportTemplate: React.FC<SearchReportTemplateProps> = ({
             searchDate: new Date(),
             examiner: {
               name: 'Pending Assignment',
-              title: 'Patent Examiner',
+              title: 'F2O Search Analyst',
               qualifications: []
             },
             clientReference: '',
@@ -309,7 +309,7 @@ const SearchReportTemplate: React.FC<SearchReportTemplateProps> = ({
         
         {/* Examiner Information */}
         <Box mt={2}>
-          <Typography variant="subtitle2" color="text.secondary">Patent Examiner</Typography>
+          <Typography variant="subtitle2" color="text.secondary">F2O Search Analyst</Typography>
           <Grid container spacing={2}>
             <Grid item xs={12} md={4}>
               <TextField

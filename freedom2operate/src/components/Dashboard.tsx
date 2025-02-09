@@ -27,14 +27,12 @@ import {
   collection, 
   query, 
   where, 
-  getDocs, 
   orderBy, 
-  doc as firestoreDoc, 
-  getDoc,
   onSnapshot,
   QuerySnapshot,
   DocumentData,
-  QueryDocumentSnapshot 
+  QueryDocumentSnapshot,
+  Timestamp
 } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../firebase';
@@ -130,7 +128,10 @@ const Dashboard = () => {
   }, [userProfile]);
 
   const fetchDashboardData = useCallback(async () => {
-    if (!currentUser) return;
+    if (!currentUser || !userProfile) {
+      setLoading(false);
+      return;
+    }
 
     try {
       // Fetch submissions with status filter
@@ -141,44 +142,97 @@ const Dashboard = () => {
         orderBy('createdAt', 'desc')
       );
 
-      // Set up real-time listeners
-      const unsubscribeSubmissions = onSnapshot(submissionsQuery, async (snapshot: QuerySnapshot<DocumentData>) => {
-        const refsData: ReferenceData[] = [];
-        
-        for (const doc of snapshot.docs) {
-          const data = doc.data();
-          let ndaInfo;
+      // Define NDA document type
+      interface NDADocument extends DocumentData {
+        firstName: string;
+        lastName: string;
+        signedAt: Timestamp;
+        pdfUrl?: string;
+      }
 
-          // If submission has an NDA ID, fetch the NDA details
-          if (data.ndaId) {
-            const ndaDoc = firestoreDoc(db, 'ndaAgreements', data.ndaId);
-            const ndaSnapshot = await getDoc(ndaDoc);
-            if (ndaSnapshot.exists()) {
-              const ndaData = ndaSnapshot.data();
-              ndaInfo = {
-                id: data.ndaId,
-                signedAt: new Date(ndaData?.signedAt?.toDate() || new Date()),
-                pdfUrl: ndaData?.pdfUrl
+      // Query NDAs with retry logic
+      let retryCount = 0;
+      const maxRetries = 3;
+      const retryDelay = 1000; // 1 second
+
+      const setupNDAListener = async () => {
+        try {
+          const ndasQuery = query(
+            collection(db, 'ndaAgreements'),
+            where('userId', '==', currentUser.uid),
+            orderBy('signedAt', 'desc')
+          );
+
+          return onSnapshot(ndasQuery, (ndaSnapshot) => {
+            const ndaData = ndaSnapshot.docs
+              .filter(doc => doc.data().status === 'signed')
+              .map(doc => {
+                const data = doc.data() as NDADocument;
+              return {
+                referenceNumber: doc.id,
+                createdAt: new Date(data.signedAt.toDate()).toLocaleDateString(),
+                status: 'Completed' as ProjectStatus,
+                projectName: `${data.firstName} ${data.lastName}'s NDA`,
+                searchType: 'fto' as const,
+                ndaInfo: {
+                  id: doc.id,
+                  signedAt: new Date(data.signedAt.toDate()),
+                  pdfUrl: data.pdfUrl
+                }
               };
+            });
+            
+            // Update references with NDA data
+            setReferences(prev => {
+              // Keep existing non-NDA references
+              const nonNdaRefs = prev.filter(ref => !ref.ndaInfo);
+              // Combine with new NDA references
+              return [...nonNdaRefs, ...ndaData];
+            });
+          }, (error) => {
+            console.error('Error in NDA listener:', error);
+            if (retryCount < maxRetries) {
+              retryCount++;
+              console.log(`Retrying NDA listener (${retryCount}/${maxRetries})...`);
+              setTimeout(setupNDAListener, retryDelay);
             }
+          });
+        } catch (error) {
+          console.error('Error setting up NDA listener:', error);
+          if (retryCount < maxRetries) {
+            retryCount++;
+            console.log(`Retrying NDA listener (${retryCount}/${maxRetries})...`);
+            setTimeout(setupNDAListener, retryDelay);
           }
+          return () => {}; // Return empty cleanup function
+        }
+      };
 
-          refsData.push({
+      const unsubscribeNDAs = await setupNDAListener();
+
+      // Set up submissions listener
+      const unsubscribeSubmissions = onSnapshot(submissionsQuery, (snapshot: QuerySnapshot<DocumentData>) => {
+        const refsData = snapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
             referenceNumber: data.referenceNumber,
             createdAt: new Date(data.createdAt.toDate()).toLocaleDateString(),
-            status: data.status || 'Draft',
+            status: (data.status || 'Draft') as ProjectStatus,
             projectName: data.projectName || 'Untitled Project',
-            searchType: data.searchType || 'fto',
+            searchType: (data.searchType || 'fto') as 'fto' | 'patentability',
             draftProgress: data.status === 'Draft' ? {
               currentStep: data.currentStep || 'Basic Information',
               completedSteps: data.completedSteps || [],
               lastModified: new Date(data.lastModified?.toDate() || data.createdAt.toDate())
-            } : undefined,
-            ndaInfo
-          });
-        }
-        
-        setReferences(refsData);
+            } : undefined
+          };
+        });
+
+        // Merge submissions with existing NDA references
+        setReferences(prev => {
+          const ndaRefs = prev.filter(ref => ref.ndaInfo);
+          return [...ndaRefs, ...refsData];
+        });
       });
 
       // Set up real-time listener for progress
@@ -225,11 +279,12 @@ const Dashboard = () => {
         setPayments(paymentsData);
       });
 
-      // Clean up listeners on unmount
+      // Clean up all listeners on unmount
       return () => {
         unsubscribeSubmissions();
         unsubscribeProgress();
         unsubscribePayments();
+        unsubscribeNDAs();
       };
 
     } catch (error) {

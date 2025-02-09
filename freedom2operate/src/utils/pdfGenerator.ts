@@ -31,43 +31,8 @@ export const generateSubmissionPDF = async (formData: FormData): Promise<jsPDF> 
   const contentStartY = margin + headerMargin;
   const contentEndY = pageHeight - (margin + footerMargin);
 
-  // Add watermark
-  try {
-    // Import logo using Vite's dynamic import
-    const logoModule = await import('../assets/logo1.png');
-    const logoUrl = logoModule.default;
-    
-    // Create a new image and wait for it to load
-    const loadImage = (): Promise<HTMLImageElement> => {
-      return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => resolve(img);
-        img.onerror = reject;
-        img.src = logoUrl;
-      });
-    };
-
-    const logo = await loadImage();
-    
-    // Calculate center position and size for watermark
-    const logoWidth = 100;
-    const logoHeight = 100;
-    const logoX = (pageWidth - logoWidth) / 2;
-    const logoY = (pageHeight - logoHeight) / 2;
-
-    // Add watermark with reduced opacity
-    const originalGState = (doc as any).getGState();
-    (doc as any).setGState((doc as any).addGState({
-      opacity: 0.1
-    }));
-    doc.addImage(logo, 'PNG', logoX, logoY, logoWidth, logoHeight);
-    (doc as any).setGState(originalGState);
-  } catch (error) {
-    console.error('Error adding watermark:', error);
-  }
-
   // Helper function to add header
-  const addHeader = (pageNum: number) => {
+  const addHeader = () => {
     doc.setFontSize(10);
     doc.setTextColor(100, 100, 100);
     const header = `${formData.inventionTitle} | Ref: ${formData.referenceNumber}`;
@@ -80,7 +45,7 @@ export const generateSubmissionPDF = async (formData: FormData): Promise<jsPDF> 
   const addFooter = (pageNum: number, totalPages: number) => {
     doc.setFontSize(10);
     doc.setTextColor(100, 100, 100);
-    doc.text(`Freedom2Operate Search Report | Page ${pageNum} of ${totalPages}`, pageWidth / 2, pageHeight - margin, { align: 'center' });
+    doc.text(`Freedom2operate Search Report | Page ${pageNum} of ${totalPages}`, pageWidth / 2, pageHeight - margin, { align: 'center' });
     doc.setTextColor(0, 0, 0);
   };
 
@@ -89,7 +54,7 @@ export const generateSubmissionPDF = async (formData: FormData): Promise<jsPDF> 
     const pageCount = doc.internal.pages.length - 1;
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i);
-      addHeader(i);
+      addHeader();
       addFooter(i, pageCount);
     }
   };
@@ -138,7 +103,7 @@ export const generateSubmissionPDF = async (formData: FormData): Promise<jsPDF> 
   yPos = checkNewPage(yPos, lineHeight * 2);
   doc.setFontSize(16);
   doc.text('Project Information', margin, yPos);
-  yPos += lineHeight;
+  yPos += lineHeight * 2;
 
   doc.setFontSize(12);
   yPos = checkNewPage(yPos);
@@ -153,7 +118,7 @@ export const generateSubmissionPDF = async (formData: FormData): Promise<jsPDF> 
   yPos = addWrappedText(`Email: ${formData.email}`, yPos);
   yPos = checkNewPage(yPos);
   yPos = addWrappedText(`Phone: ${formData.phone}`, yPos);
-  yPos += lineHeight;
+  yPos += lineHeight * 2;
 
   // Invention Details
   yPos = checkNewPage(yPos, lineHeight * 2);
@@ -239,6 +204,36 @@ export const generateSubmissionPDF = async (formData: FormData): Promise<jsPDF> 
       }
     });
   }
+
+  // What to Expect Section
+  yPos = checkNewPage(yPos, lineHeight * 2);
+  doc.setFontSize(14);
+  doc.text('What to Expect', margin, yPos);
+  yPos += lineHeight;
+  doc.setFontSize(12);
+
+  const expectationText = [
+    'Our comprehensive search process involves a thorough analysis of patent databases including USPTO, EPO, WIPO, and other relevant technical literature. The search is conducted by experienced patent professionals using advanced search strategies and tools.',
+    'You can expect to receive your detailed report within 5 business days. The report will include:',
+    '• A comprehensive analysis of relevant patents and prior art',
+    '• Detailed examination of potential freedom to operate issues',
+    '• Market and competitive landscape insights',
+    '• Strategic recommendations and next steps',
+    'Our search utilizes industry-standard databases and resources to ensure thorough coverage of both patent and non-patent literature, providing you with actionable insights for your innovation strategy.',
+    '',
+    'Contact Information:',
+    'Michael Smith',
+    'Email: smythmyke@gmail.com',
+    'Phone: (214-400-3781)'
+  ];
+
+  expectationText.forEach((text) => {
+    yPos = checkNewPage(yPos);
+    yPos = addWrappedText(text, yPos);
+    if (!text.startsWith('•')) {
+      yPos += lineHeight / 2; // Add extra space between paragraphs
+    }
+  });
 
   // Add headers and footers before returning
   addHeadersAndFooters();

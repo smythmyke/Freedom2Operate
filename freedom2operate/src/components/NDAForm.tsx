@@ -96,7 +96,7 @@ const NDAForm = ({ open, onClose, userDetails }: NDAFormProps) => {
     }));
   };
 
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -105,7 +105,7 @@ const NDAForm = ({ open, onClose, userDetails }: NDAFormProps) => {
       setLoading(true);
       setError(null);
 
-      if (!currentUser) {
+      if (!currentUser || !userProfile) {
         // Save form data before redirecting
         sessionStorage.setItem('pendingNdaData', JSON.stringify({
           firstName: formData.firstName,
@@ -129,12 +129,12 @@ const NDAForm = ({ open, onClose, userDetails }: NDAFormProps) => {
       try {
         const existingNdaQuery = query(
           collection(db, 'ndaAgreements'),
-          where('userId', '==', currentUser.uid),
-          where('status', '==', 'signed')
+          where('userId', '==', currentUser.uid)
         );
         const existingNdaSnapshot = await getDocs(existingNdaQuery);
         
-        if (!existingNdaSnapshot.empty) {
+        const signedNda = existingNdaSnapshot.docs.find(doc => doc.data().status === 'signed');
+        if (signedNda) {
           const existingNda = existingNdaSnapshot.docs[0];
           const ndaData = existingNda.data();
           
@@ -184,12 +184,18 @@ const NDAForm = ({ open, onClose, userDetails }: NDAFormProps) => {
 
       console.log('Attempting to save NDA...');
       // First save the NDA agreement to Firestore
+      // First save the NDA agreement to Firestore with all required fields
       const ndaRef = await addDoc(collection(db, 'ndaAgreements'), {
-        ...formData,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        title: formData.title,
+        agreed: formData.agreed,
+        hasSignature: formData.hasSignature,
         userId: currentUser.uid,
         signedAt: new Date(),
         status: 'signed',
         version: '2.0',
+        companyName: formData.companyName,
         terms: {
           duration: '5 years',
           governingLaw: 'Texas',
@@ -237,10 +243,8 @@ const NDAForm = ({ open, onClose, userDetails }: NDAFormProps) => {
       sessionStorage.setItem('ndaCompanyName', formData.companyName || '');
 
       try {
-        // Get signature data
+        // Generate and save PDF locally first
         const signatureData = signaturePadRef.current?.getTrimmedCanvas().toDataURL('image/png');
-
-        // Generate and upload PDF after saving to Firestore
         const pdf = generateNDAPDF({
           signerName: `${formData.firstName} ${formData.lastName}`,
           signerCompany: formData.companyName,
@@ -250,17 +254,21 @@ const NDAForm = ({ open, onClose, userDetails }: NDAFormProps) => {
           signatureData
         });
 
+        // Save PDF locally
+        pdf.save(`NDA_${formData.firstName}_${formData.lastName}.pdf`);
+
+        // Upload to Firebase Storage
         const pdfBlob = pdf.output('blob');
         const storageRef = ref(storage, `ndas/${currentUser.uid}/${ndaRef.id}.pdf`);
-        await uploadBytes(storageRef, pdfBlob);
-        const pdfUrl = await getDownloadURL(storageRef);
+        const uploadResult = await uploadBytes(storageRef, pdfBlob);
+        const pdfUrl = await getDownloadURL(uploadResult.ref);
 
-        // Update the NDA document with the PDF URL
+        // Update Firestore document with PDF URL
         await updateDoc(ndaRef, { pdfUrl });
         sessionStorage.setItem('ndaPdfUrl', pdfUrl);
-      } catch (uploadError) {
-        console.error('Error uploading PDF:', uploadError);
-        // Even if PDF upload fails, we can still proceed since the NDA is saved
+      } catch (error) {
+        console.error('Error handling PDF:', error);
+        // Show error but don't block the process since NDA is saved
       }
 
       // Check for any draft submissions

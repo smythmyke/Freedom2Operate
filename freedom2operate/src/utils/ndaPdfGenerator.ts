@@ -97,17 +97,17 @@ export const generateNDAPDF = (data: NDAPDFData) => {
 
   // Disclosing Party signature
   pdf.text('For Disclosing Party:', 20, 90);
-  pdf.text(data.signerName, 20, 100);
-  pdf.text(data.signerTitle, 20, 107);
+  pdf.text(data.signerName, 20, 130);
+  pdf.text(data.signerTitle, 20, 137);
   if (data.signerCompany) {
-    pdf.text(data.signerCompany, 20, 114);
+    pdf.text(data.signerCompany, 20, 144);
   }
-  pdf.text(`Date: ${currentDate}`, 20, data.signerCompany ? 121 : 114);
+  pdf.text(`Date: ${currentDate}`, 20, data.signerCompany ? 151 : 144);
 
   // Add signature if provided
   if (data.signatureData) {
     const signatureHeight = 20;
-    const signatureY = data.signerCompany ? 90 : 83;
+    const signatureY = data.signerCompany ? 120 : 113;
     pdf.addImage(data.signatureData, 'PNG', 20, signatureY, 50, signatureHeight);
   }
 

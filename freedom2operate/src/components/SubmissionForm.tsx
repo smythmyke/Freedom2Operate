@@ -12,6 +12,8 @@ import {
   StepLabel,
   Alert,
   CircularProgress,
+  FormControlLabel,
+  Switch,
 } from '@mui/material';
 import { 
   collection, 
@@ -19,7 +21,10 @@ import {
   query, 
   where, 
   getDocs,
-  DocumentData,
+  doc,
+  getDoc,
+  orderBy,
+  limit,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../firebase';
@@ -36,21 +41,48 @@ interface LocationState {
   company?: string;
 }
 
-interface PayPalPaymentDetails {
-  id: string;
-  status: string;
-  payer: {
-    email_address?: string;
-    payer_id: string;
-  };
-  purchase_units: Array<{
-    amount: {
-      value: string;
-      currency_code: string;
-    };
-  }>;
-  create_time: string;
-  update_time: string;
+interface SearchTimeframe {
+  startYear: number;
+  endYear: number;
+}
+
+interface SearchParameters {
+  includeNonPatentLiterature: boolean;
+  includeExpiredPatents: boolean;
+  includeApplications: boolean;
+  searchLanguages: string[];
+  classificationCodes: string[];
+  keywordStrategy: 'broad' | 'narrow';
+}
+
+interface FormData {
+  projectName: string;
+  referenceNumber: string;
+  companyName: string;
+  contactName: string;
+  email: string;
+  phone: string;
+  requestConsultation: boolean;
+  consultationDate: string;
+  consultationTime: string;
+  autoGenerateFeatures: boolean;
+  inventionTitle: string;
+  background: string;
+  specialInstructions: string;
+  description: string;
+  features: string[];
+  technicalField: string;
+  targetMarkets: string[];
+  conceptionDate: string;
+  targetJurisdictions: string[];
+  relatedPatents: string[];
+  searchTimeframe: SearchTimeframe;
+  priorityJurisdictions: string[];
+  secondaryJurisdictions: string[];
+  searchParameters: SearchParameters;
+  commercializationTimeline: string;
+  competitorCompanies: string[];
+  budgetConstraints: string;
 }
 
 // Helper function to properly capitalize titles
@@ -90,7 +122,7 @@ const SubmissionForm = () => {
   const [totalAmount, setTotalAmount] = useState(PRICING.base);
   const { currentUser, userProfile } = useAuth();
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     projectName: '',
     referenceNumber: '',
     companyName: userProfile?.company || '',
@@ -103,6 +135,7 @@ const SubmissionForm = () => {
     autoGenerateFeatures: false,
     inventionTitle: '',
     background: '',
+    specialInstructions: '',
     description: '',
     features: ['', '', '', '', '', ''],
     technicalField: '',
@@ -110,6 +143,23 @@ const SubmissionForm = () => {
     conceptionDate: '',
     targetJurisdictions: ['US'],
     relatedPatents: [''],
+    searchTimeframe: {
+      startYear: new Date().getFullYear() - 20,
+      endYear: new Date().getFullYear()
+    },
+    priorityJurisdictions: ['US', 'EP', 'WO'],
+    secondaryJurisdictions: [],
+    searchParameters: {
+      includeNonPatentLiterature: true,
+      includeExpiredPatents: true,
+      includeApplications: true,
+      searchLanguages: ['en'],
+      classificationCodes: [],
+      keywordStrategy: 'broad',
+    },
+    commercializationTimeline: '',
+    competitorCompanies: [],
+    budgetConstraints: '',
   });
 
   const [ndaStatus, setNdaStatus] = useState<'checking' | 'valid' | 'invalid'>('checking');
@@ -119,20 +169,26 @@ const SubmissionForm = () => {
   useEffect(() => {
     const checkExistingNDA = async () => {
       if (!currentUser?.uid) {
+        console.error('No authenticated user');
+        setNdaError('Please log in to continue.');
         setNdaStatus('invalid');
         return;
       }
 
+      if (!userProfile) {
+        console.error('User profile not loaded');
+        setNdaError('User profile is loading. Please wait...');
+        return;
+      }
+
       try {
-        // First check session storage for recently signed NDA
-        const ndaId = sessionStorage.getItem('ndaId');
+        // First check location state since it's from direct NDA form navigation
         const fromNda = location.state?.fromNda;
         const name = location.state?.name;
         const company = location.state?.company;
 
-        if (ndaId || fromNda) {
+        if (fromNda) {
           if (name) {
-            // Pre-fill form with NDA details
             setFormData(prev => ({
               ...prev,
               contactName: name,
@@ -143,20 +199,64 @@ const SubmissionForm = () => {
           return;
         }
 
-        // If no session NDA, check Firestore
+        // Then check session storage for existing NDA
+        const ndaId = sessionStorage.getItem('ndaId');
+        if (ndaId) {
+          const signerName = sessionStorage.getItem('ndaSignerName');
+          const companyName = sessionStorage.getItem('ndaCompanyName');
+          
+          if (signerName) {
+            setFormData(prev => ({
+              ...prev,
+              contactName: signerName,
+              companyName: companyName || ''
+            }));
+          }
+          setNdaStatus('valid');
+          return;
+        }
+
+        // Then verify AuthContext profile since it's already loaded
+        if (!userProfile?.email) {
+          console.error('AuthContext profile not properly initialized');
+          setNdaError('User profile is incomplete. Please try logging out and back in.');
+          setNdaStatus('invalid');
+          return;
+        }
+
+        // Then verify Firestore user document
+        const userRef = doc(db, 'users', currentUser.uid);
+        const userDoc = await getDoc(userRef);
+        
+        if (!userDoc.exists()) {
+          console.error('User document not found');
+          setNdaError('User profile not found. Please try logging in again.');
+          setNdaStatus('invalid');
+          return;
+        }
+
+        const userData = userDoc.data();
+        if (!userData?.role) {
+          console.error('User document missing role');
+          setNdaError('User permissions not set. Please contact support.');
+          setNdaStatus('invalid');
+          return;
+        }
+
+        // Finally check Firestore for NDAs if no session NDA found
         const ndaQuery = query(
           collection(db, 'ndaAgreements'),
           where('userId', '==', currentUser.uid),
-          where('status', '==', 'signed')
+          where('status', '==', 'signed'),
+          orderBy('signedAt', 'desc'),
+          limit(1)
         );
         const ndaSnapshot = await getDocs(ndaQuery);
         
         if (!ndaSnapshot.empty) {
-          // User has an existing NDA, use the most recent one
-          const ndaDocs = ndaSnapshot.docs.sort((a, b) => 
-            b.data().signedAt.toMillis() - a.data().signedAt.toMillis()
-          );
-          const latestNda = ndaDocs[0];
+          // Use the first NDA since the query already filters for signed NDAs
+          // and the index sorts by signedAt in descending order
+          const latestNda = ndaSnapshot.docs[0];
           const ndaData = latestNda.data();
           
           sessionStorage.setItem('ndaId', latestNda.id);
@@ -187,18 +287,22 @@ const SubmissionForm = () => {
     };
 
     checkExistingNDA();
-  }, [location, navigate, currentUser, formData.contactName]);
-
+  }, [location, navigate, currentUser, userProfile, formData.contactName]);
 
   useEffect(() => {
     let total = PRICING.base;
     if (formData.autoGenerateFeatures) {
       total += PRICING.featureGeneration;
     }
+    // Add $75 for each feature beyond the first 6
+    const additionalFeatures = Math.max(0, formData.features.length - 6);
+    total += additionalFeatures * PRICING.featureGeneration;
     setTotalAmount(total);
-  }, [formData.requestConsultation, formData.autoGenerateFeatures]);
+  }, [formData.requestConsultation, formData.autoGenerateFeatures, formData.features.length]);
 
-  const handleInputChange = (field: string, value: string | string[] | boolean): void => {
+  type FormDataValue = string | string[] | boolean | SearchTimeframe | SearchParameters;
+  
+  const handleInputChange = (field: keyof FormData, value: FormDataValue): void => {
     // Apply title case to project name and invention title
     if (field === 'projectName' || field === 'inventionTitle') {
       value = toTitleCase(value as string);
@@ -230,7 +334,7 @@ const SubmissionForm = () => {
     }
   };
 
-  const handlePaymentSuccess = async (paymentDetails: PayPalPaymentDetails) => {
+  const handlePaymentSuccess = async () => {
     try {
       const referenceNumber = generateReferenceNumber(currentUser?.uid || 'GUEST');
       
@@ -396,7 +500,7 @@ const SubmissionForm = () => {
                formData.email && formData.phone &&
                (!formData.requestConsultation || (formData.consultationDate && formData.consultationTime)));
       case 1: {
-        const baseValid = Boolean(formData.inventionTitle && formData.description);
+        const baseValid = Boolean(formData.inventionTitle && formData.description && formData.background);
         if (formData.autoGenerateFeatures) {
           return baseValid;
         }
@@ -422,6 +526,11 @@ const SubmissionForm = () => {
         <Typography><strong>{searchType === 'fto' ? 'F2O' : 'Patentability'} Search:</strong> ${PRICING.base}</Typography>
         {formData.autoGenerateFeatures && (
           <Typography><strong>Feature Generation:</strong> ${PRICING.featureGeneration}</Typography>
+        )}
+        {formData.features.length > 6 && (
+          <Typography>
+            <strong>Additional Features ({formData.features.length - 6}):</strong> ${(formData.features.length - 6) * PRICING.featureGeneration}
+          </Typography>
         )}
         <Typography variant="h6" sx={{ mt: 2 }}>
           Total: ${totalAmount}
@@ -522,6 +631,24 @@ const SubmissionForm = () => {
                       Patentability
                     </Button>
                   </Box>
+                  <Box sx={{ mb: 4, p: 3, bgcolor: 'background.paper', borderRadius: 1, border: 1, borderColor: 'divider' }}>
+                    <Typography variant="h6" gutterBottom>
+                      What to Expect
+                    </Typography>
+                    <Typography paragraph>
+                      Our comprehensive search process involves a thorough analysis of patent databases including USPTO, EPO, WIPO, and other relevant technical literature. The search is conducted by experienced patent professionals using advanced search strategies and tools.
+                    </Typography>
+                    <Typography paragraph>
+                      You can expect to receive your detailed report within 5 business days. The report will include:
+                      • A comprehensive analysis of relevant patents and prior art
+                      • Detailed examination of potential freedom to operate issues
+                      • Market and competitive landscape insights
+                      • Strategic recommendations and next steps
+                    </Typography>
+                    <Typography>
+                      Our search utilizes industry-standard databases and resources to ensure thorough coverage of both patent and non-patent literature, providing you with actionable insights for your innovation strategy.
+                    </Typography>
+                  </Box>
                   <TextField
                     fullWidth
                     label="Project Name"
@@ -587,6 +714,115 @@ const SubmissionForm = () => {
                   />
                 </Grid>
                 <Grid item xs={12}>
+                  <Typography variant="h6" gutterBottom>Search Parameters</Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        type="number"
+                        label="Search Start Year"
+                        value={formData.searchTimeframe.startYear}
+                        onChange={(e: ChangeEvent<HTMLInputElement>) => handleInputChange('searchTimeframe', {
+                          ...formData.searchTimeframe,
+                          startYear: parseInt(e.target.value) || new Date().getFullYear() - 20
+                        })}
+                        InputLabelProps={{ shrink: true }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        type="number"
+                        label="Search End Year"
+                        value={formData.searchTimeframe.endYear}
+                        onChange={(e: ChangeEvent<HTMLInputElement>) => handleInputChange('searchTimeframe', {
+                          ...formData.searchTimeframe,
+                          endYear: parseInt(e.target.value) || new Date().getFullYear()
+                        })}
+                        InputLabelProps={{ shrink: true }}
+                      />
+                    </Grid>
+                  </Grid>
+                </Grid>
+                <Grid item xs={12}>
+                  <Typography variant="subtitle1" gutterBottom>Priority Jurisdictions</Typography>
+                  <Grid container spacing={1}>
+                    {['US', 'EP', 'WO', 'CN', 'JP', 'KR'].map((jurisdiction) => (
+                      <Grid item key={jurisdiction}>
+                        <Button
+                          variant={formData.priorityJurisdictions.includes(jurisdiction) ? 'contained' : 'outlined'}
+                          onClick={() => {
+                            const newJurisdictions = formData.priorityJurisdictions.includes(jurisdiction)
+                              ? formData.priorityJurisdictions.filter(j => j !== jurisdiction)
+                              : [...formData.priorityJurisdictions, jurisdiction];
+                            handleInputChange('priorityJurisdictions', newJurisdictions);
+                          }}
+                          size="small"
+                        >
+                          {jurisdiction}
+                        </Button>
+                      </Grid>
+                    ))}
+                  </Grid>
+                </Grid>
+                <Grid item xs={12}>
+                  <Typography variant="subtitle1" gutterBottom>Search Options</Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={6}>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={formData.searchParameters.includeNonPatentLiterature}
+                            onChange={(e: ChangeEvent<HTMLInputElement>) => handleInputChange('searchParameters', {
+                              ...formData.searchParameters,
+                              includeNonPatentLiterature: e.target.checked
+                            })}
+                          />
+                        }
+                        label="Include Non-Patent Literature"
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={formData.searchParameters.includeExpiredPatents}
+                            onChange={(e: ChangeEvent<HTMLInputElement>) => handleInputChange('searchParameters', {
+                              ...formData.searchParameters,
+                              includeExpiredPatents: e.target.checked
+                            })}
+                          />
+                        }
+                        label="Include Expired Patents"
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={formData.searchParameters.includeApplications}
+                            onChange={(e: ChangeEvent<HTMLInputElement>) => handleInputChange('searchParameters', {
+                              ...formData.searchParameters,
+                              includeApplications: e.target.checked
+                            })}
+                          />
+                        }
+                        label="Include Patent Applications"
+                      />
+                    </Grid>
+                  </Grid>
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Known Competitor Companies"
+                    value={formData.competitorCompanies.join(', ')}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => handleInputChange('competitorCompanies', e.target.value.split(',').map(s => s.trim()))}
+                    helperText="Enter company names separated by commas"
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </Grid>
+                <Grid item xs={12}>
                   <TextField
                     fullWidth
                     multiline
@@ -594,7 +830,20 @@ const SubmissionForm = () => {
                     label="Background"
                     value={formData.background}
                     onChange={(e: ChangeEvent<HTMLInputElement>) => handleInputChange('background', e.target.value)}
+                    required
                     helperText="Describe the problem or need that your invention addresses"
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    multiline
+                    rows={4}
+                    label="Special Instructions"
+                    value={formData.specialInstructions}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => handleInputChange('specialInstructions', e.target.value)}
+                    helperText="Add any special instructions or additional information not covered in other fields"
                     InputLabelProps={{ shrink: true }}
                   />
                 </Grid>
@@ -614,7 +863,10 @@ const SubmissionForm = () => {
                 <Grid item xs={12}>
                   <Box sx={{ mb: 2 }}>
                     <Typography variant="h6" gutterBottom>
-                      Key Features (up to 6)
+                      Key Features
+                    </Typography>
+                    <Typography color="text.secondary" gutterBottom>
+                      First 6 features are included. Additional features cost $75 each.
                     </Typography>
                     {formData.features.map((feature, index) => (
                       <Box key={index} sx={{ display: 'flex', gap: 1, mb: 2 }}>
@@ -628,6 +880,16 @@ const SubmissionForm = () => {
                         />
                       </Box>
                     ))}
+                    <Button
+                      variant="outlined"
+                      onClick={() => {
+                        const newFeatures = [...formData.features, ''];
+                        handleInputChange('features', newFeatures);
+                      }}
+                      sx={{ mt: 1 }}
+                    >
+                      Add Feature (+$75)
+                    </Button>
                   </Box>
                 </Grid>
               </Grid>
@@ -684,6 +946,27 @@ const SubmissionForm = () => {
                     <Typography><strong>Phone:</strong> {formData.phone}</Typography>
                   </Grid>
                   <Grid item xs={12}>
+                    <Typography variant="subtitle1" sx={{ mt: 3, mb: 2, fontWeight: 'bold' }}>Search Parameters</Typography>
+                    <Typography><strong>Time Range:</strong> {formData.searchTimeframe.startYear} - {formData.searchTimeframe.endYear}</Typography>
+                    <Typography><strong>Priority Jurisdictions:</strong> {formData.priorityJurisdictions.join(', ')}</Typography>
+                    <Typography><strong>Search Options:</strong></Typography>
+                    <Box sx={{ ml: 2 }}>
+                      <Typography>• Include Non-Patent Literature: {formData.searchParameters.includeNonPatentLiterature ? 'Yes' : 'No'}</Typography>
+                      <Typography>• Include Expired Patents: {formData.searchParameters.includeExpiredPatents ? 'Yes' : 'No'}</Typography>
+                      <Typography>• Include Patent Applications: {formData.searchParameters.includeApplications ? 'Yes' : 'No'}</Typography>
+                    </Box>
+                    {formData.competitorCompanies.length > 0 && (
+                      <>
+                        <Typography><strong>Competitor Companies:</strong></Typography>
+                        <Box sx={{ ml: 2 }}>
+                          {formData.competitorCompanies.map((company, index) => (
+                            <Typography key={index}>• {company}</Typography>
+                          ))}
+                        </Box>
+                      </>
+                    )}
+                  </Grid>
+                  <Grid item xs={12}>
                     <Typography variant="subtitle1" sx={{ mt: 3, mb: 2, fontWeight: 'bold' }}>Invention Details</Typography>
                     <Typography><strong>Title:</strong> {formData.inventionTitle}</Typography>
                     {formData.background && (
@@ -694,11 +977,25 @@ const SubmissionForm = () => {
                     )}
                     <Typography><strong>Description:</strong></Typography>
                     <Typography sx={{ ml: 2, mb: 2 }}>{formData.description}</Typography>
+                    {formData.specialInstructions && (
+                      <>
+                        <Typography><strong>Special Instructions:</strong></Typography>
+                        <Typography sx={{ ml: 2, mb: 2 }}>{formData.specialInstructions}</Typography>
+                      </>
+                    )}
                     <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>Key Features:</Typography>
                     {formData.features.filter(f => f).map((feature, index) => (
                       <Typography key={index} sx={{ ml: 2 }}>• {feature}</Typography>
                     ))}
                   </Grid>
+                  {files.length > 0 && (
+                    <Grid item xs={12}>
+                      <Typography variant="subtitle1" sx={{ mt: 3, mb: 2, fontWeight: 'bold' }}>Supporting Documents</Typography>
+                      {files.map((file, index) => (
+                        <Typography key={index} sx={{ ml: 2 }}>• {file.name}</Typography>
+                      ))}
+                    </Grid>
+                  )}
                 </Grid>
               </Box>
             )}
@@ -706,14 +1003,14 @@ const SubmissionForm = () => {
               <Button
                 onClick={handleBack}
                 sx={{ mr: 1 }}
-                disabled={Boolean(activeStep === 0)}
+                disabled={activeStep === 0}
               >
                 Back
               </Button>
               <Button
                 variant="contained"
                 onClick={handleNext}
-                disabled={!Boolean(isStepValid())}
+                disabled={!isStepValid()}
               >
                 {activeStep === steps.length - 2 ? 'Proceed to Payment' : 'Next'}
               </Button>
