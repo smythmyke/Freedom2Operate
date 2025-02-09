@@ -44,6 +44,8 @@ const VideoCallRequest = ({ open, onClose, references }: VideoCallRequestProps) 
   const [files, setFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedDateTime, setSelectedDateTime] = useState<Date | null>(null);
+  const [inventionTitle, setInventionTitle] = useState('');
+  const [inventionReference, setInventionReference] = useState('');
 
   const minTime = useMemo(() => setHours(setMinutes(new Date(), 0), 9), []); // 9 AM
   const maxTime = useMemo(() => setHours(setMinutes(new Date(), 0), 17), []); // 5 PM
@@ -63,6 +65,11 @@ const VideoCallRequest = ({ open, onClose, references }: VideoCallRequestProps) 
         ? prev.filter(t => t !== type)
         : [...prev, type]
     );
+    // Clear invention fields if "Discuss Invention" is unchecked
+    if (type === 'Discuss Invention' && callTypes.includes(type)) {
+      setInventionTitle('');
+      setInventionReference('');
+    }
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -74,6 +81,11 @@ const VideoCallRequest = ({ open, onClose, references }: VideoCallRequestProps) 
   const handleSubmit = async () => {
     if (callTypes.length === 0 || !selectedDateTime) {
       setError('Please select a call type and preferred date/time');
+      return;
+    }
+
+    if (callTypes.includes('Discuss Invention') && !inventionTitle) {
+      setError('Please enter the invention title');
       return;
     }
 
@@ -107,7 +119,9 @@ const VideoCallRequest = ({ open, onClose, references }: VideoCallRequestProps) 
         files: files.map((file, index) => ({
           name: file.name,
           url: fileUrls[index]
-        }))
+        })),
+        inventionTitle: inventionTitle || undefined,
+        inventionReference: inventionReference || undefined
       });
       
       setSuccess(true);
@@ -118,6 +132,8 @@ const VideoCallRequest = ({ open, onClose, references }: VideoCallRequestProps) 
         setProjectReference('');
         setAdditionalInfo('');
         setFiles([]);
+        setInventionTitle('');
+        setInventionReference('');
       }, 2000);
     } catch (error) {
       console.error('Video call request error:', error);
@@ -152,6 +168,26 @@ const VideoCallRequest = ({ open, onClose, references }: VideoCallRequestProps) 
               label="Discuss Invention"
             />
           </FormGroup>
+
+          {callTypes.includes('Discuss Invention') && (
+            <>
+              <TextField
+                fullWidth
+                required
+                label="Invention Title"
+                value={inventionTitle}
+                onChange={(e) => setInventionTitle(e.target.value)}
+                sx={{ mb: 2 }}
+              />
+              <TextField
+                fullWidth
+                label="Reference Number (Optional)"
+                value={inventionReference}
+                onChange={(e) => setInventionReference(e.target.value)}
+                sx={{ mb: 2 }}
+              />
+            </>
+          )}
 
           {references.length > 0 && (
             <FormControl fullWidth sx={{ mb: 3 }}>

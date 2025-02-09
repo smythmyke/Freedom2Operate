@@ -1,11 +1,33 @@
 {
   "indexes": [
     {
-      "collectionGroup": "ndaAgreements",
+      "collectionGroup": "users",
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "signedAt",
+          "fieldPath": "uid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "email",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "submissions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
           "order": "DESCENDING"
         }
       ]
@@ -19,6 +41,10 @@
           "order": "ASCENDING"
         },
         {
+          "fieldPath": "status",
+          "arrayConfig": "CONTAINS"
+        },
+        {
           "fieldPath": "createdAt",
           "order": "DESCENDING"
         }
@@ -30,6 +56,10 @@
       "fields": [
         {
           "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
           "order": "ASCENDING"
         },
         {

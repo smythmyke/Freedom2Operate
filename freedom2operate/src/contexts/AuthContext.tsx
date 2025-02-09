@@ -23,7 +23,7 @@ interface UserProfile {
 interface AuthContextType {
   currentUser: User | null;
   userProfile: UserProfile | null;
-  signup: (email: string, password: string) => Promise<void>;
+  signup: (email: string, password: string, profileData?: Partial<UserProfile>) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (data: Partial<UserProfile>) => Promise<void>;
@@ -65,17 +65,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  const signup = async (email: string, password: string) => {
+  const signup = async (email: string, password: string, profileData?: Partial<UserProfile>) => {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       // Store additional user data in Firestore
       const userData: UserProfile = {
         email,
         createdAt: new Date().toISOString(),
-        lastLoginAt: new Date().toISOString()
+        lastLoginAt: new Date().toISOString(),
+        role: 'user',  // Set default role
+        ...profileData
       };
-      await setDoc(doc(db, 'users', userCredential.user.uid), userData);
+      const userRef = doc(db, 'users', userCredential.user.uid);
+      await setDoc(userRef, userData);
       setUserProfile(userData);
+      setIsAdmin(userData.role === 'admin');
     } catch (error) {
       console.error('Error signing up:', error);
       if (error instanceof Error) {

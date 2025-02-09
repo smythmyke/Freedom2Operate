@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
-import { Box, Typography, Alert } from '@mui/material';
+import { Box, Typography, Alert, Button } from '@mui/material';
 import F2O from './F2O';
 
 interface PayPalPaymentDetails {
@@ -24,9 +24,10 @@ interface PaymentStepProps {
   amount: number;
   onSuccess: (details: PayPalPaymentDetails) => void;
   onError: (error: Error) => void;
+  onSubmitForReview: () => void;
 }
 
-const PaymentStep = ({ amount, onSuccess, onError }: PaymentStepProps) => {
+const PaymentStep = ({ amount, onSuccess, onError, onSubmitForReview }: PaymentStepProps) => {
   const [error, setError] = useState<string | null>(null);
 
   const initialOptions = {
@@ -44,6 +45,18 @@ const PaymentStep = ({ amount, onSuccess, onError }: PaymentStepProps) => {
         <Typography variant="body1">
           Total Amount: ${amount}
         </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mt: 2 }}>
+          <Button
+            variant="outlined"
+            color="primary"
+            onClick={onSubmitForReview}
+          >
+            Submit for Review
+          </Button>
+          <Typography variant="body2" color="text.secondary" sx={{ alignSelf: 'center' }}>
+            or pay now
+          </Typography>
+        </Box>
       </Box>
       
       {error && (

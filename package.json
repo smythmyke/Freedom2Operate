@@ -2,6 +2,7 @@
   "dependencies": {
     "@paypal/react-paypal-js": "^8.8.1",
     "@sendgrid/mail": "^8.1.4",
+    "firebase-admin": "^13.0.2",
     "jspdf": "^2.5.2"
   }
 }

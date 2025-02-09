@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import SignaturePad from 'react-signature-canvas';
 import {
   Dialog,
   DialogTitle,
@@ -33,14 +34,53 @@ interface NDAFormProps {
 }
 
 const NDAForm = ({ open, onClose, userDetails }: NDAFormProps) => {
+  const signaturePadRef = useRef<SignaturePad | null>(null);
+
+  const handlePreview = () => {
+    if (!formData.firstName || !formData.lastName || !formData.title) return;
+
+    const signatureData = signaturePadRef.current?.getTrimmedCanvas().toDataURL('image/png');
+    const pdf = generateNDAPDF({
+      signerName: `${formData.firstName} ${formData.lastName}`,
+      signerCompany: formData.companyName,
+      signerTitle: formData.title,
+      signedAt: new Date(),
+      version: '2.0',
+      signatureData
+    });
+
+    // Open PDF in new window
+    const pdfUrl = URL.createObjectURL(pdf.output('blob'));
+    window.open(pdfUrl, '_blank');
+  };
+
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     firstName: userDetails?.firstName || '',
     lastName: userDetails?.lastName || '',
     companyName: userDetails?.companyName || '',
     title: '',
-    agreed: false
+    agreed: false,
+    hasSignature: false
   });
+
+  // Load saved form data if it exists
+  useEffect(() => {
+    const savedData = sessionStorage.getItem('pendingNdaData');
+    if (savedData) {
+      try {
+        const parsedData = JSON.parse(savedData);
+        setFormData(prev => ({
+          ...prev,
+          ...parsedData
+        }));
+        // Clear the saved data after loading
+        sessionStorage.removeItem('pendingNdaData');
+      } catch (error) {
+        console.error('Error parsing saved NDA data:', error);
+      }
+    }
+  }, []);
 
   const handleInputChange = (field: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
     setFormData((prev) => ({
@@ -61,28 +101,88 @@ const NDAForm = ({ open, onClose, userDetails }: NDAFormProps) => {
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async () => {
-    if (!currentUser) {
-      // Close NDA form and redirect to login with return URL
-      onClose();
-      navigate('/login', { 
-        state: { 
-          returnUrl: '/submit',
-          openNda: true,
-          ndaData: {
-            firstName: formData.firstName,
-            lastName: formData.lastName,
-            companyName: formData.companyName,
-            title: formData.title
-          }
-        } 
-      });
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
     try {
+      setLoading(true);
+      setError(null);
+
+      if (!currentUser) {
+        // Save form data before redirecting
+        sessionStorage.setItem('pendingNdaData', JSON.stringify({
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          companyName: formData.companyName,
+          title: formData.title
+        }));
+        
+        onClose();
+        navigate('/login', { 
+          state: { 
+            returnUrl: '/submit',
+            openNda: true,
+            message: 'Please log in to complete your NDA submission.'
+          } 
+        });
+        return;
+      }
+
+      // Check for existing NDA
+      try {
+        const existingNdaQuery = query(
+          collection(db, 'ndaAgreements'),
+          where('userId', '==', currentUser.uid),
+          where('status', '==', 'signed')
+        );
+        const existingNdaSnapshot = await getDocs(existingNdaQuery);
+        
+        if (!existingNdaSnapshot.empty) {
+          const existingNda = existingNdaSnapshot.docs[0];
+          const ndaData = existingNda.data();
+          
+          // Store NDA info in session storage
+          sessionStorage.setItem('ndaId', existingNda.id);
+          sessionStorage.setItem('ndaSignerName', `${ndaData.firstName} ${ndaData.lastName}`);
+          sessionStorage.setItem('ndaCompanyName', ndaData.companyName || '');
+          if (ndaData.pdfUrl) {
+            sessionStorage.setItem('ndaPdfUrl', ndaData.pdfUrl);
+          }
+
+          onClose();
+          navigate('/submit', { 
+            state: { 
+              fromNda: true,
+              name: `${ndaData.firstName} ${ndaData.lastName}`,
+              company: ndaData.companyName
+            } 
+          });
+          return;
+        }
+      } catch (error) {
+        console.error('Error checking existing NDA:', error);
+        // Continue with new NDA creation even if check fails
+      }
+
+      // Verify user is still authenticated
+      if (!currentUser?.uid) {
+        // Save form data before redirecting
+        sessionStorage.setItem('pendingNdaData', JSON.stringify({
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          companyName: formData.companyName,
+          title: formData.title
+        }));
+        
+        onClose();
+        navigate('/login', { 
+          state: { 
+            returnUrl: '/submit',
+            openNda: true,
+            message: 'Your session has expired. Please log in again to complete your NDA submission.'
+          } 
+        });
+        return;
+      }
+
+      console.log('Attempting to save NDA...');
       // First save the NDA agreement to Firestore
       const ndaRef = await addDoc(collection(db, 'ndaAgreements'), {
         ...formData,
@@ -129,20 +229,25 @@ const NDAForm = ({ open, onClose, userDetails }: NDAFormProps) => {
           effectiveDate: new Date()
         }
       });
-
+      
+      console.log('NDA saved successfully with ID:', ndaRef.id);
       // Store NDA ID and signer info in session storage immediately after creating the NDA
       sessionStorage.setItem('ndaId', ndaRef.id);
       sessionStorage.setItem('ndaSignerName', `${formData.firstName} ${formData.lastName}`);
       sessionStorage.setItem('ndaCompanyName', formData.companyName || '');
 
       try {
+        // Get signature data
+        const signatureData = signaturePadRef.current?.getTrimmedCanvas().toDataURL('image/png');
+
         // Generate and upload PDF after saving to Firestore
         const pdf = generateNDAPDF({
           signerName: `${formData.firstName} ${formData.lastName}`,
           signerCompany: formData.companyName,
           signerTitle: formData.title,
           signedAt: new Date(),
-          version: '2.0'
+          version: '2.0',
+          signatureData
         });
 
         const pdfBlob = pdf.output('blob');
@@ -247,98 +352,62 @@ const NDAForm = ({ open, onClose, userDetails }: NDAFormProps) => {
             />
           </Box>
 
-          <Typography variant="h6" gutterBottom>
-            1. Purpose
-          </Typography>
-          <Typography paragraph>
-            The purpose of this Agreement is to protect the confidential information related to the 
-            invention, patent search, and any associated intellectual property that the Disclosing 
-            Party shares with Freedom2Operate for the purpose of conducting a Freedom to Operate (FTO) search.
-          </Typography>
+          {/* Agreement content sections */}
+          <Box sx={{ my: 3 }}>
+            <Typography variant="h6" gutterBottom>I. CONFIDENTIAL INFORMATION</Typography>
+            <Typography paragraph>
+              A. Freedom2Operate agrees to receive INFORMATION from the Disclosing Party to facilitate possible future business dealings between the parties.
+            </Typography>
+            <Typography paragraph>
+              B. Freedom2Operate agrees to receive such INFORMATION and to refrain from copying, disclosing, using, selling, or offering for sale any and all of said INFORMATION, other than at the request of the Disclosing Party. Freedom2Operate agrees to keep confidential and refrain from disclosing any and all of the INFORMATION, and to take all necessary and reasonable steps to prevent unauthorized disclosure or use of any and all of the INFORMATION.
+            </Typography>
+            <Typography paragraph>
+              C. Freedom2Operate shall not be liable for disclosure or use of INFORMATION only if, and only to the extent that, said INFORMATION was in the public domain at the time it was disclosed by the Disclosing Party, or was known to and recorded in writing by Freedom2Operate prior to the time of disclosure by the Disclosing Party.
+            </Typography>
+            <Typography paragraph>
+              D. This is not an offer for sale or license. No right or license is granted by the Disclosing Party to Freedom2Operate in connection with the technical information or inventions disclosed under this agreement.
+            </Typography>
+            <Typography paragraph>
+              E. This Agreement shall remain in force in spite of disclosure of the INFORMATION by the Disclosing Party in the form of patent applications, copyright applications, or other disclosures.
+            </Typography>
 
-          <Typography variant="h6" gutterBottom>
-            2. Definitions
-          </Typography>
-          <Typography paragraph>
-            "Invention" shall mean all information relating to business programs, products, applications, systems, components, technologies and business topics.
-          </Typography>
-          <Typography paragraph>
-            "Confidential Information" shall mean all information provided by Disclosing Party with respect to the Invention regardless of whether it is written, oral, audio tapes, video tapes, computer discs, machines, prototypes, designs, specifications, articles of manufacture, drawings, human or machine-readable documents.
-          </Typography>
-          <Typography paragraph>
-            Confidential Information shall not include information that:
-          </Typography>
-          <Typography component="ul">
-            <li>Is in the public domain at the time of disclosure or subsequently enters the public domain without fault of the Receiving Party</li>
-            <li>Was in the possession of Receiving Party at the time of disclosure that may be demonstrated by business records</li>
-            <li>Was acquired from a third party who did not require Receiving Party to hold the same in confidence</li>
-          </Typography>
+            <Typography variant="h6" gutterBottom>II. RESTRICTIONS</Typography>
+            <Typography paragraph>
+              A. Except for the express written consent of the Disclosing Party, Freedom2Operate agrees:
+            </Typography>
+            <Typography component="div" sx={{ pl: 3 }}>
+              1. Not to use or disclose to another person or entity any confidential information;<br />
+              2. Not to make, or cause to be made, any copies, facsimiles or other reproductions including data files of any documents containing confidential information; and<br />
+              3. To use all other reasonable means to maintain the secrecy and confidentiality of the confidential information.
+            </Typography>
+            <Typography paragraph sx={{ mt: 2 }}>
+              B. Freedom2Operate further agrees, at the request of the Disclosing Party:
+            </Typography>
+            <Typography component="div" sx={{ pl: 3 }}>
+              1. To immediately return all items containing confidential information; and<br />
+              2. To refrain from using or disclosing to any other person or entity any confidential information.
+            </Typography>
 
-          <Typography variant="h6" gutterBottom>
-            3. Use of Confidential Information
-          </Typography>
-          <Typography paragraph>
-            Freedom2Operate agrees to:
-          </Typography>
-          <Typography component="ul">
-            <li>Receive and maintain the Confidential Information in confidence</li>
-            <li>Examine the Confidential Information at its own expense</li>
-            <li>Not reproduce the Confidential Information without express written consent</li>
-            <li>Not disclose the Confidential Information to any person, firm, or corporation</li>
-            <li>Limit internal dissemination to employees with a need to know</li>
-            <li>Not use the Confidential Information without express written consent</li>
-            <li>Not use the information as a basis for similar designs or systems</li>
-            <li>Utilize best efforts to protect the information from loss, theft, or destruction</li>
-          </Typography>
+            <Typography variant="h6" gutterBottom sx={{ mt: 3 }}>III. INTELLECTUAL PROPERTY</Typography>
+            <Typography paragraph>
+              All intellectual property rights related to the INFORMATION shall remain the sole property of the Disclosing Party. This includes but is not limited to patents, copyrights, trademarks, trade secrets, and any other proprietary rights.
+            </Typography>
 
-          <Typography variant="h6" gutterBottom>
-            4. Return of Information
-          </Typography>
-          <Typography paragraph>
-            All Confidential Information shall remain the property of the Disclosing Party. Freedom2Operate agrees to return all Confidential Information within 5 days of written demand, without retaining any copies.
-          </Typography>
+            <Typography variant="h6" gutterBottom>IV. DAMAGES AND SPECIFIC PERFORMANCE</Typography>
+            <Typography paragraph>
+              Freedom2Operate agrees that should Freedom2Operate breach any of the promises contained in this Agreement, the Disclosing Party would suffer irreparable harm and would be without adequate remedy at law. The Disclosing Party may obtain injunctive relief, including specific performance of the Agreement, as well as monetary award for damages suffered.
+            </Typography>
 
-          <Typography variant="h6" gutterBottom>
-            5. Enforcement & Remedies
-          </Typography>
-          <Typography paragraph>
-            The parties acknowledge that due to the unique and sensitive nature of the Confidential Information, any breach of this Agreement would cause irreparable harm for which damages and/or equitable relief may be sought. The parties shall be entitled to all remedies available at law.
-          </Typography>
+            <Typography variant="h6" gutterBottom>V. GOVERNING LAW</Typography>
+            <Typography paragraph>
+              This Agreement shall be governed by, construed, and enforced in accordance with the laws of the State of Texas. Any dispute involving the terms or conditions of this Agreement shall be brought in a Texas State court of competent jurisdiction.
+            </Typography>
 
-          <Typography variant="h6" gutterBottom>
-            6. Non-Assignable
-          </Typography>
-          <Typography paragraph>
-            This Agreement shall be non-assignable by either party unless prior written consent is received. If assigned or transferred, it shall be binding on all successors and assigns.
-          </Typography>
-
-          <Typography variant="h6" gutterBottom>
-            7. No License
-          </Typography>
-          <Typography paragraph>
-            Neither party does, by virtue of disclosure of the Confidential Information, grant any right or license to any patent, trade secret, invention, trademark, copyright, or other intellectual property right.
-          </Typography>
-
-          <Typography variant="h6" gutterBottom>
-            8. Term and Termination
-          </Typography>
-          <Typography paragraph>
-            This Agreement shall remain in effect for a period of five (5) years from the date of signing. The confidentiality obligations shall survive the termination of this Agreement.
-          </Typography>
-
-          <Typography variant="h6" gutterBottom>
-            9. Governing Law
-          </Typography>
-          <Typography paragraph>
-            This Agreement shall be governed by and construed in accordance with the laws of the State of Texas, United States, without regard to its conflict of laws principles.
-          </Typography>
-
-          <Typography variant="h6" gutterBottom>
-            10. Severability
-          </Typography>
-          <Typography paragraph>
-            The provisions of this Agreement are independent and separable. If any provision is found invalid or unenforceable, the remaining provisions shall remain valid and enforceable.
-          </Typography>
+            <Typography variant="h6" gutterBottom>VI. TERM</Typography>
+            <Typography paragraph>
+              This Agreement shall remain in effect for a period of five (5) years from the date of signing. The confidentiality obligations shall survive the termination of this Agreement.
+            </Typography>
+          </Box>
 
           <Divider sx={{ my: 3 }} />
 
@@ -346,7 +415,7 @@ const NDAForm = ({ open, onClose, userDetails }: NDAFormProps) => {
             Signatures
           </Typography>
 
-          <Box sx={{ mb: 3 }}>
+          <Box sx={{ mb: 3, mt: 4 }}>
             <Typography variant="subtitle1" gutterBottom>
               For Freedom2Operate:
             </Typography>
@@ -361,16 +430,63 @@ const NDAForm = ({ open, onClose, userDetails }: NDAFormProps) => {
             </Typography>
           </Box>
 
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={formData.agreed}
-                onChange={handleCheckboxChange}
-                color="primary"
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="subtitle1" gutterBottom>
+              Your Signature:
+            </Typography>
+            <Paper 
+              variant="outlined" 
+              sx={{ 
+                width: '100%', 
+                height: 200, 
+                backgroundColor: '#f8f8f8',
+                mb: 2
+              }}
+            >
+              <SignaturePad
+                canvasProps={{
+                  width: 600,
+                  height: 200,
+                  style: { width: '100%', height: '100%' }
+                }}
+                ref={signaturePadRef}
+                onEnd={() => setFormData(prev => ({ ...prev, hasSignature: true }))}
               />
-            }
-            label="I have read and agree to the terms of this Non-Disclosure Agreement"
-          />
+            </Paper>
+            <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+              <Button 
+                size="small" 
+                onClick={() => {
+                  if (signaturePadRef.current) {
+                    signaturePadRef.current.clear();
+                    setFormData(prev => ({ ...prev, hasSignature: false }));
+                  }
+                }}
+              >
+                Clear Signature
+              </Button>
+              <Button 
+                size="small"
+                onClick={handlePreview}
+                disabled={!formData.firstName || !formData.lastName || !formData.title}
+              >
+                Preview NDA
+              </Button>
+            </Box>
+          </Box>
+
+          <Box sx={{ mb: 3 }}>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={formData.agreed}
+                  onChange={handleCheckboxChange}
+                  color="primary"
+                />
+              }
+              label="I have read and agree to the terms of this Non-Disclosure Agreement"
+            />
+          </Box>
         </Paper>
       </DialogContent>
       <DialogActions>
@@ -378,7 +494,7 @@ const NDAForm = ({ open, onClose, userDetails }: NDAFormProps) => {
         <Button
           onClick={handleSubmit}
           variant="contained"
-          disabled={loading || !formData.agreed || !formData.firstName || !formData.lastName || !formData.title}
+          disabled={loading || !formData.agreed || !formData.hasSignature || !formData.firstName || !formData.lastName || !formData.title}
         >
           {loading ? <CircularProgress size={24} /> : 'Accept & Continue'}
         </Button>

@@ -4,6 +4,40 @@ import emailjs from "@emailjs/browser";
 // Initialize EmailJS
 emailjs.init(import.meta.env.VITE_EMAILJS_PUBLIC_KEY);
 
+interface StatusChangeData {
+  to: string;
+  projectName: string;
+  referenceNumber: string;
+  oldStatus: string;
+  newStatus: string;
+  notes?: string;
+  estimatedCompletion?: string;
+}
+
+export const sendStatusChangeEmail = async (data: StatusChangeData): Promise<void> => {
+  try {
+    const templateParams = {
+      to_email: data.to,
+      project_name: data.projectName,
+      reference_number: data.referenceNumber,
+      old_status: data.oldStatus,
+      new_status: data.newStatus,
+      notes: data.notes || '',
+      estimated_completion: data.estimatedCompletion || 'To be determined',
+      update_date: new Date().toLocaleDateString()
+    };
+
+    await emailjs.send(
+      import.meta.env.VITE_EMAILJS_SERVICE_ID,
+      import.meta.env.VITE_EMAILJS_STATUS_TEMPLATE_ID,
+      templateParams
+    );
+  } catch (error) {
+    console.error("Error sending status change email:", error);
+    throw new Error("Failed to send status change email");
+  }
+};
+
 interface VideoCallFile {
   name: string;
   url: string;
@@ -17,6 +51,8 @@ export const sendVideoCallRequest = async (data: {
   userName: string;
   files?: VideoCallFile[];
   preferredTime?: string;
+  inventionTitle?: string;
+  inventionReference?: string;
 }): Promise<void> => {
   try {
     const templateParams = {
@@ -27,6 +63,8 @@ export const sendVideoCallRequest = async (data: {
       preferred_time: data.preferredTime || "",
       additional_info: data.additionalInfo || "",
       files: data.files || [],
+      invention_title: data.inventionTitle || "",
+      invention_reference: data.inventionReference || "",
     };
 
     await emailjs.send(
@@ -47,13 +85,25 @@ export const sendSubmissionEmail = async (data: {
   pdf: jsPDF;
 }): Promise<void> => {
   try {
-    const pdfBase64 = data.pdf.output('datauristring');
+    // Convert PDF to base64
+    const pdfBytes = data.pdf.output('blob');
+    const reader = new FileReader();
+    const base64Promise = new Promise((resolve) => {
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        resolve(base64String.split(',')[1]); // Remove data URI prefix
+      };
+      reader.readAsDataURL(pdfBytes);
+    });
+    
+    const pdfBase64 = await base64Promise;
     
     const templateParams = {
       to_email: data.to,
       project_name: data.projectName,
       reference_number: data.referenceNumber,
-      pdf_attachment: pdfBase64
+      pdf_attachment: pdfBase64,
+      pdf_name: `FTO_Request_${data.referenceNumber}.pdf`
     };
 
     await emailjs.send(

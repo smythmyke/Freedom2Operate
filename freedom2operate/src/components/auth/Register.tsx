@@ -61,9 +61,7 @@ const Register = () => {
     try {
       setError('');
       setLoading(true);
-      await signup(formData.email, formData.password);
-      // Update profile after signup
-      await updateProfile({
+      await signup(formData.email, formData.password, {
         displayName: formData.displayName,
         company: formData.company,
         phone: formData.phone

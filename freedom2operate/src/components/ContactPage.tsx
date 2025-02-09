@@ -1,6 +1,6 @@
 import { Box, Typography, Paper, TextField, Button, Grid, Alert } from '@mui/material';
 import { useState } from 'react';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import EmailIcon from '@mui/icons-material/Email';
 import PhoneIcon from '@mui/icons-material/Phone';
@@ -37,7 +37,7 @@ const ContactPage = () => {
       await addDoc(collection(db, 'contacts'), {
         ...formData,
         recipientEmail: 'smythmyke@gmail.com',
-        submittedAt: new Date(),
+        submittedAt: serverTimestamp(),
         status: 'unread'
       });
       setSubmitStatus('success');

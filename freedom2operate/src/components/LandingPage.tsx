@@ -1,8 +1,12 @@
-import { Box, Typography, Button, Paper, Grid, Container, Table, TableBody, TableCell, TableHead, TableRow } from '@mui/material';
+import { Box, Typography, Button, Paper, Grid, Container, Table, TableBody, TableCell, TableHead, TableRow, Dialog, DialogContent } from '@mui/material';
 import Logo from '../components/Logo';
 import TextLogo from '../components/TextLogo';
 import ContactForm from '../components/ContactForm';
+import TextCarousel from './TextCarousel';
+import { FTOSummary } from './FTOEducation';
 import NDAForm from './NDAForm';
+import SampleReportView from './reports/SampleReportView';
+import { downloadSampleReport } from '../utils/sampleReportPdfGenerator';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import SearchIcon from '@mui/icons-material/Search';
@@ -15,6 +19,7 @@ import CloseIcon from '@mui/icons-material/Close';
 const LandingPage = () => {
   const navigate = useNavigate();
   const [ndaOpen, setNdaOpen] = useState(false);
+  const [sampleReportOpen, setSampleReportOpen] = useState(false);
   const location = useLocation();
 
   useEffect(() => {
@@ -45,6 +50,13 @@ const LandingPage = () => {
         >
           Patent Search
         </Typography>
+        <TextCarousel 
+          phrases={[
+            "Flat Rate Pricing",
+            "Fast Turnaround",
+            "Transparent Process"
+          ]}
+        />
         <Typography variant="h5" color="text.secondary" paragraph>
           Professional patent search services to help protect your innovations
         </Typography>
@@ -99,7 +111,7 @@ const LandingPage = () => {
                 transition: 'color 0.3s ease-in-out'
               }}
             >
-              4-8 hour thorough analysis of existing patents and publications using comprehensive public and private database tools
+              Thorough analysis of existing patents and publications within 3 business days from acceptance using comprehensive public and private database tools
             </Typography>
           </Paper>
         </Grid>
@@ -163,7 +175,7 @@ const LandingPage = () => {
                 mb: 1
               }}
             >
-              $500
+              $650
             </Typography>
             <Typography color="text.secondary" sx={{ mb: 2 }}>
               For inventions with up to 6 key features
@@ -227,6 +239,34 @@ const LandingPage = () => {
         </Grid>
       </Grid>
 
+      {/* Sample Report Section */}
+      <Paper sx={{ p: 3.5, mb: 8 }}>
+        <Typography variant="h4" gutterBottom>
+          Sample Report
+        </Typography>
+        <Typography paragraph>
+          View our comprehensive sample FTO search report to understand the depth and quality of our analysis. 
+          This sample report demonstrates our thorough approach to patent searching and analysis.
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
+          <Button
+            variant="contained"
+            onClick={() => setSampleReportOpen(true)}
+          >
+            Preview Sample Report
+          </Button>
+          <Button
+            variant="outlined"
+            onClick={downloadSampleReport}
+          >
+            Download Sample Report (PDF)
+          </Button>
+        </Box>
+      </Paper>
+
+      {/* FTO Education Section */}
+      <FTOSummary />
+
       {/* Service Details */}
       <Paper sx={{ p: 3.5, mb: 8 }}>
         <Typography variant="h4" gutterBottom>
@@ -242,7 +282,7 @@ const LandingPage = () => {
           and patent documents to provide you with a clear understanding of the patent landscape around your invention.
         </Typography>
         <Typography paragraph>
-          Each search typically takes 4-8 hours to complete, ensuring a thorough analysis of all relevant documents
+          Each search is completed within 3 business days from acceptance, ensuring a thorough analysis of all relevant documents
           and potential conflicts.
         </Typography>
         <Typography paragraph>
@@ -317,8 +357,8 @@ const LandingPage = () => {
                   whiteSpace: 'nowrap',
                   fontWeight: 'bold'
                 }}>Freedom2Operate</TableCell>
-                <TableCell>$500 flat rate</TableCell>
-                <TableCell>4-8 hours</TableCell>
+                <TableCell>$650 flat rate</TableCell>
+                <TableCell>3 business days from acceptance</TableCell>
                 <TableCell>
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -708,7 +748,7 @@ const LandingPage = () => {
             }
           }}>
             <Typography variant="h3" component="div" sx={{ color: 'white' }}>
-              $500
+              $650
             </Typography>
             <Typography variant="h6" sx={{ color: 'white' }} gutterBottom>
               Flat Rate Package
@@ -724,7 +764,7 @@ const LandingPage = () => {
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
               <CheckCircleIcon sx={{ color: 'success.main', mr: 1 }} />
-              <Typography>4-8 hour thorough analysis</Typography>
+              <Typography>3 business day thorough analysis</Typography>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
               <CheckCircleIcon sx={{ color: 'success.main', mr: 1 }} />
@@ -785,6 +825,28 @@ const LandingPage = () => {
         onClose={() => setNdaOpen(false)}
         userDetails={location.state?.userDetails}
       />
+
+      {/* Sample Report Dialog */}
+      <Dialog 
+        open={sampleReportOpen} 
+        onClose={() => setSampleReportOpen(false)}
+        maxWidth={false}
+        fullWidth
+        PaperProps={{
+          sx: {
+            maxHeight: '90vh',
+            height: '90vh',
+            width: '95vw',
+            m: 2,
+            display: 'flex',
+            flexDirection: 'column'
+          }
+        }}
+      >
+        <DialogContent sx={{ p: 0, flexGrow: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <SampleReportView onClose={() => setSampleReportOpen(false)} />
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 };

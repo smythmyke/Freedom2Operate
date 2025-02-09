@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
 import {
   Container,
   Typography,
@@ -21,19 +22,19 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  TextField,
   Link,
   Tab,
   Tabs,
-  Tooltip,
   IconButton,
 } from '@mui/material';
 import DescriptionIcon from '@mui/icons-material/Description';
-import { collection, query, getDocs, orderBy, updateDoc, doc, addDoc, where } from 'firebase/firestore';
+import { collection, query, getDocs, orderBy, getDoc, doc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { toTitleCase } from '../../utils/formatting';
-import type { ProjectStatus, PaymentStatus, Submission, DraftProgress, NDAInfo } from '../../types';
+import type { ProjectStatus, Submission, DraftProgress, NDAInfo } from '../../types';
 import SearchReportTemplate from '../reports/SearchReportTemplate';
+import generateSampleReportPdf from '../../utils/sampleReportPdfGenerator';
+import { sampleReport } from '../../data/sampleReport';
 
 interface EnhancedSubmission extends Submission {
   draftProgress?: DraftProgress;
@@ -49,20 +50,19 @@ interface NDAWithProjects extends NDAInfo {
 type DialogType = 'status' | 'report' | null;
 
 const AdminDashboard = () => {
+  const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState(0);
   const [submissions, setSubmissions] = useState<EnhancedSubmission[]>([]);
   const [ndaAgreements, setNdaAgreements] = useState<NDAWithProjects[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<ProjectStatus | 'all'>('all');
-  const [ndaFilter, setNdaFilter] = useState<'all' | 'with_nda' | 'without_nda'>('all');
   const [selectedSubmission, setSelectedSubmission] = useState<EnhancedSubmission | null>(null);
   const [dialogType, setDialogType] = useState<DialogType>(null);
-  const [newStatus, setNewStatus] = useState<ProjectStatus>('Draft');
-  const [newPaymentStatus, setNewPaymentStatus] = useState<PaymentStatus>('Unpaid');
-  const [statusNote, setStatusNote] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
+      if (!currentUser) return;
+
       try {
         // Fetch all NDAs first
         const ndasQuery = query(
@@ -72,18 +72,17 @@ const AdminDashboard = () => {
         const ndaSnapshot = await getDocs(ndasQuery);
         const ndaData: NDAWithProjects[] = [];
         
-        // Get all unique user IDs from NDAs
+        // Get all unique user IDs from NDAs and fetch their emails
         const userIds = new Set(ndaSnapshot.docs.map(doc => doc.data().userId));
+        const userEmails = new Map();
         
-        // Fetch user emails in batch
-        const usersQuery = query(
-          collection(db, 'users'),
-          where('uid', 'in', Array.from(userIds))
-        );
-        const userSnapshot = await getDocs(usersQuery);
-        const userEmails = new Map(
-          userSnapshot.docs.map(doc => [doc.data().uid, doc.data().email])
-        );
+        for (const userId of userIds) {
+          const userDoc = await getDoc(doc(db, 'users', userId));
+          if (userDoc.exists()) {
+            const userData = userDoc.data() as { email: string };
+            userEmails.set(userId, userData.email);
+          }
+        }
 
         // Fetch all submissions
         const submissionsQuery = query(
@@ -93,16 +92,12 @@ const AdminDashboard = () => {
         const submissionsSnapshot = await getDocs(submissionsQuery);
         const submissionsData: EnhancedSubmission[] = [];
         
-        // Process submissions first
-        for (const doc of submissionsSnapshot.docs) {
+        // Process submissions
+        submissionsSnapshot.docs.forEach(doc => {
           const data = doc.data();
+          const ndaDoc = ndaSnapshot.docs.find(ndaDoc => ndaDoc.id === data.ndaId);
+          
           let ndaInfo;
-
-          // Find associated NDA if it exists
-          const ndaDoc = ndaSnapshot.docs.find(ndaDoc => 
-            ndaDoc.id === data.ndaId
-          );
-
           if (ndaDoc) {
             const ndaData = ndaDoc.data();
             ndaInfo = {
@@ -117,7 +112,7 @@ const AdminDashboard = () => {
             };
           }
 
-          const submission = {
+          submissionsData.push({
             id: doc.id,
             referenceNumber: data.referenceNumber,
             projectName: data.projectName,
@@ -138,32 +133,8 @@ const AdminDashboard = () => {
               formData: data.formData || {}
             } : undefined,
             ndaInfo
-          };
-          
-          submissionsData.push(submission);
-        }
-
-        // Process NDAs and associate them with submissions
-        for (const doc of ndaSnapshot.docs) {
-          const data = doc.data();
-          const associatedProjects = submissionsData.filter(
-            sub => sub.ndaInfo?.id === doc.id
-          );
-
-          ndaData.push({
-            id: doc.id,
-            userId: data.userId,
-            userEmail: userEmails.get(data.userId),
-            signedAt: new Date(data.signedAt.toDate()),
-            status: data.status,
-            pdfUrl: data.pdfUrl,
-            signerName: data.metadata.parties.disclosing.name,
-            signerCompany: data.metadata.parties.disclosing.company,
-            signerTitle: data.metadata.parties.disclosing.title,
-            version: data.version,
-            associatedProjects
           });
-        }
+        });
 
         setSubmissions(submissionsData);
         setNdaAgreements(ndaData);
@@ -175,56 +146,15 @@ const AdminDashboard = () => {
     };
 
     fetchData();
-  }, []);
+  }, [currentUser]);
 
   const handleCloseDialog = () => {
     setDialogType(null);
     setSelectedSubmission(null);
   };
 
-  const handleStatusUpdate = async () => {
-    if (!selectedSubmission) return;
-
-    try {
-      // Update submission status and payment status
-      await updateDoc(doc(db, 'submissions', selectedSubmission.id), {
-        status: newStatus,
-        paymentStatus: newPaymentStatus,
-        notes: statusNote,
-      });
-
-      // Create progress entry
-      await addDoc(collection(db, 'progress'), {
-        submissionId: selectedSubmission.referenceNumber,
-        userId: selectedSubmission.userId,
-        currentStep: newStatus === 'Completed' ? 5 : 
-                    newStatus === 'In Progress' ? 2 :
-                    newStatus === 'Submitted' ? 1 : 0,
-        status: newStatus,
-        notes: statusNote,
-        createdAt: new Date(),
-      });
-
-      // Update local state
-      setSubmissions(prev => prev.map(sub => 
-        sub.id === selectedSubmission.id 
-          ? { ...sub, status: newStatus, paymentStatus: newPaymentStatus, notes: statusNote }
-          : sub
-      ));
-
-      handleCloseDialog();
-    } catch (error) {
-      console.error('Error updating status:', error);
-    }
-  };
-
   const filteredSubmissions = submissions
-    .filter(sub => statusFilter === 'all' || sub.status === statusFilter)
-    .filter(sub => {
-      if (ndaFilter === 'with_nda') return sub.ndaInfo !== undefined;
-      if (ndaFilter === 'without_nda') return sub.ndaInfo === undefined;
-      return true;
-    });
+    .filter(sub => statusFilter === 'all' || sub.status === statusFilter);
 
   if (loading) {
     return (
@@ -240,16 +170,16 @@ const AdminDashboard = () => {
         <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)}>
           <Tab label="Submissions" />
           <Tab label="NDAs" />
+          <Tab label="Templates & Samples" />
         </Tabs>
       </Box>
 
-      {activeTab === 0 ? (
+      {activeTab === 0 && (
         <>
           <Typography variant="h4" gutterBottom>
             Submissions
           </Typography>
 
-          {/* Filters */}
           <Paper sx={{ p: 2, mb: 3, display: 'flex', gap: 2 }}>
             <FormControl sx={{ minWidth: 200 }}>
               <InputLabel>Filter by Status</InputLabel>
@@ -261,27 +191,15 @@ const AdminDashboard = () => {
                 <MenuItem value="all">All Submissions</MenuItem>
                 <MenuItem value="Draft">Draft</MenuItem>
                 <MenuItem value="Submitted">Submitted</MenuItem>
+                <MenuItem value="Pending Review">Pending Review</MenuItem>
                 <MenuItem value="Pending">Pending</MenuItem>
                 <MenuItem value="In Progress">In Progress</MenuItem>
                 <MenuItem value="On Hold">On Hold</MenuItem>
                 <MenuItem value="Completed">Completed</MenuItem>
               </Select>
             </FormControl>
-            <FormControl sx={{ minWidth: 200 }}>
-              <InputLabel>NDA Status</InputLabel>
-              <Select
-                value={ndaFilter}
-                label="NDA Status"
-                onChange={(e) => setNdaFilter(e.target.value as 'all' | 'with_nda' | 'without_nda')}
-              >
-                <MenuItem value="all">All Submissions</MenuItem>
-                <MenuItem value="with_nda">With NDA</MenuItem>
-                <MenuItem value="without_nda">Without NDA</MenuItem>
-              </Select>
-            </FormControl>
           </Paper>
 
-          {/* Submissions Table */}
           <TableContainer component={Paper}>
             <Table>
               <TableHead>
@@ -289,14 +207,9 @@ const AdminDashboard = () => {
                   <TableCell>Reference</TableCell>
                   <TableCell>Project Name</TableCell>
                   <TableCell>Type</TableCell>
-                  <TableCell>Contact</TableCell>
-                  <TableCell>Created/Modified</TableCell>
                   <TableCell>Status</TableCell>
-                  <TableCell>Progress</TableCell>
-                  <TableCell>NDA Status</TableCell>
                   <TableCell>Payment</TableCell>
                   <TableCell>Actions</TableCell>
-                  <TableCell>Report</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -306,87 +219,16 @@ const AdminDashboard = () => {
                     <TableCell>{toTitleCase(submission.projectName)}</TableCell>
                     <TableCell>{submission.searchType === 'fto' ? 'F2O' : 'Patentability'}</TableCell>
                     <TableCell>
-                      <Typography variant="body2">{submission.contactName}</Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {submission.email}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      {submission.status === 'Draft' && submission.draftProgress ? (
-                        <>
-                          <Typography variant="caption" color="text.secondary" display="block">
-                            Created: {submission.createdAt}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary" display="block">
-                            Modified: {submission.draftProgress.lastModified.toLocaleDateString()}
-                          </Typography>
-                        </>
-                      ) : (
-                        submission.createdAt
-                      )}
-                    </TableCell>
-                    <TableCell>
                       <Chip
                         label={submission.status}
                         color={
                           submission.status === 'Completed' ? 'success' :
                           submission.status === 'In Progress' ? 'primary' :
                           submission.status === 'On Hold' ? 'warning' :
-                          submission.status === 'Draft' ? 'default' :
-                          'info'
+                          'default'
                         }
                         size="small"
                       />
-                    </TableCell>
-                    <TableCell>
-                      {submission.status === 'Draft' && submission.draftProgress ? (
-                        <Box>
-                          <Typography variant="caption" display="block">
-                            Step: {submission.draftProgress.currentStep}
-                          </Typography>
-                          <Typography variant="caption" display="block">
-                            {submission.draftProgress.completedSteps.length} of 5 steps
-                          </Typography>
-                        </Box>
-                      ) : (
-                        <Typography variant="caption" color="text.secondary">
-                          N/A
-                        </Typography>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {submission.ndaInfo ? (
-                        <Box>
-                          <Tooltip title={`Signed by ${submission.ndaInfo.signerName} on ${submission.ndaInfo.signedAt.toLocaleDateString()}`}>
-                            <Chip
-                              label={submission.ndaInfo.status}
-                              color={
-                                submission.ndaInfo.status === 'signed' ? 'success' :
-                                submission.ndaInfo.status === 'expired' ? 'error' :
-                                'warning'
-                              }
-                              size="small"
-                              sx={{ mb: 1 }}
-                            />
-                          </Tooltip>
-                          {submission.ndaInfo.pdfUrl && (
-                            <Link
-                              href={submission.ndaInfo.pdfUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              sx={{ textDecoration: 'none', display: 'block' }}
-                            >
-                              <Button size="small" variant="outlined">
-                                View NDA
-                              </Button>
-                            </Link>
-                          )}
-                        </Box>
-                      ) : (
-                        <Typography variant="caption" color="text.secondary">
-                          No NDA
-                        </Typography>
-                      )}
                     </TableCell>
                     <TableCell>
                       <Chip
@@ -400,27 +242,13 @@ const AdminDashboard = () => {
                       />
                     </TableCell>
                     <TableCell>
-                      <Button
-                        size="small"
-                        onClick={() => {
-                          setSelectedSubmission(submission);
-                          setNewStatus(submission.status);
-                          setNewPaymentStatus(submission.paymentStatus);
-                          setStatusNote(submission.notes || '');
-                          setDialogType('status');
-                        }}
-                      >
-                        Update Status
-                      </Button>
-                    </TableCell>
-                    <TableCell>
                       <IconButton
                         color="primary"
                         onClick={() => {
                           setSelectedSubmission(submission);
                           setDialogType('report');
                         }}
-                        title="Create/Edit Report"
+                        title="View/Edit Report"
                       >
                         <DescriptionIcon />
                       </IconButton>
@@ -430,91 +258,10 @@ const AdminDashboard = () => {
               </TableBody>
             </Table>
           </TableContainer>
-
-          {/* Status Update Dialog */}
-          <Dialog 
-            open={dialogType === 'status'} 
-            onClose={handleCloseDialog}
-            maxWidth="sm"
-            fullWidth
-          >
-            <DialogTitle>Update Submission Status</DialogTitle>
-            <DialogContent>
-              <Box sx={{ pt: 2, display: 'grid', gap: 2 }}>
-                <FormControl fullWidth>
-                  <InputLabel>Project Status</InputLabel>
-                  <Select
-                    value={newStatus}
-                    label="Project Status"
-                    onChange={(e) => setNewStatus(e.target.value as ProjectStatus)}
-                  >
-                    <MenuItem value="Draft">Draft</MenuItem>
-                    <MenuItem value="Submitted">Submitted</MenuItem>
-                    <MenuItem value="Pending">Pending</MenuItem>
-                    <MenuItem value="In Progress">In Progress</MenuItem>
-                    <MenuItem value="On Hold">On Hold</MenuItem>
-                    <MenuItem value="Completed">Completed</MenuItem>
-                  </Select>
-                </FormControl>
-                
-                <FormControl fullWidth>
-                  <InputLabel>Payment Status</InputLabel>
-                  <Select
-                    value={newPaymentStatus}
-                    label="Payment Status"
-                    onChange={(e) => setNewPaymentStatus(e.target.value as PaymentStatus)}
-                  >
-                    <MenuItem value="Unpaid">Unpaid</MenuItem>
-                    <MenuItem value="Processing">Processing</MenuItem>
-                    <MenuItem value="Paid">Paid</MenuItem>
-                  </Select>
-                </FormControl>
-
-                <TextField
-                  fullWidth
-                  multiline
-                  rows={4}
-                  label="Status Note"
-                  value={statusNote}
-                  onChange={(e) => setStatusNote(e.target.value)}
-                  placeholder="Add a note about this status update..."
-                  InputLabelProps={{
-                    shrink: true,
-                  }}
-                />
-              </Box>
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={handleCloseDialog}>Cancel</Button>
-              <Button onClick={handleStatusUpdate} variant="contained">
-                Update Status
-              </Button>
-            </DialogActions>
-          </Dialog>
-
-          {/* Report Dialog */}
-          <Dialog
-            open={dialogType === 'report'}
-            onClose={handleCloseDialog}
-            maxWidth="xl"
-            fullWidth
-          >
-            <DialogTitle>
-              {selectedSubmission?.projectName} - Search Report
-            </DialogTitle>
-            <DialogContent>
-              {selectedSubmission && (
-                <Box sx={{ mt: 2 }}>
-                  <SearchReportTemplate submissionId={selectedSubmission.id} />
-                </Box>
-              )}
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={handleCloseDialog}>Close</Button>
-            </DialogActions>
-          </Dialog>
         </>
-      ) : (
+      )}
+
+      {activeTab === 1 && (
         <>
           <Typography variant="h4" gutterBottom>
             Non-Disclosure Agreements
@@ -526,50 +273,21 @@ const AdminDashboard = () => {
                 <TableRow>
                   <TableCell>Signer</TableCell>
                   <TableCell>Company</TableCell>
-                  <TableCell>User Email</TableCell>
-                  <TableCell>Signed Date</TableCell>
                   <TableCell>Status</TableCell>
-                  <TableCell>Associated Projects</TableCell>
                   <TableCell>Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {ndaAgreements.map((nda) => (
                   <TableRow key={nda.id}>
-                    <TableCell>
-                      <Typography variant="body2">{nda.signerName}</Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {nda.signerTitle}
-                      </Typography>
-                    </TableCell>
+                    <TableCell>{nda.signerName}</TableCell>
                     <TableCell>{nda.signerCompany || 'N/A'}</TableCell>
-                    <TableCell>{nda.userEmail || 'Unknown'}</TableCell>
-                    <TableCell>{nda.signedAt.toLocaleDateString()}</TableCell>
                     <TableCell>
                       <Chip
                         label={nda.status}
-                        color={
-                          nda.status === 'signed' ? 'success' :
-                          nda.status === 'expired' ? 'error' :
-                          'warning'
-                        }
+                        color={nda.status === 'signed' ? 'success' : 'warning'}
                         size="small"
                       />
-                    </TableCell>
-                    <TableCell>
-                      {nda.associatedProjects.length > 0 ? (
-                        <Box>
-                          {nda.associatedProjects.map((project) => (
-                            <Typography key={project.id} variant="caption" display="block">
-                              {project.projectName} ({project.referenceNumber})
-                            </Typography>
-                          ))}
-                        </Box>
-                      ) : (
-                        <Typography variant="caption" color="text.secondary">
-                          No associated projects
-                        </Typography>
-                      )}
                     </TableCell>
                     <TableCell>
                       {nda.pdfUrl && (
@@ -577,7 +295,6 @@ const AdminDashboard = () => {
                           href={nda.pdfUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          sx={{ textDecoration: 'none' }}
                         >
                           <Button size="small" variant="outlined">
                             View NDA
@@ -592,6 +309,72 @@ const AdminDashboard = () => {
           </TableContainer>
         </>
       )}
+
+      {activeTab === 2 && (
+        <>
+          <Typography variant="h4" gutterBottom>
+            Templates & Samples
+          </Typography>
+          
+          <Paper sx={{ p: 3, mb: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              Sample FTO Search Report
+            </Typography>
+            <Typography paragraph>
+              This sample report demonstrates our comprehensive FTO search process and report format.
+              It can be viewed by clients from the landing page or downloaded as a PDF.
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
+              <Button
+                variant="contained"
+                onClick={() => {
+                  setSelectedSubmission({ id: 'sample-report-001' } as EnhancedSubmission);
+                  setDialogType('report');
+                }}
+              >
+                View Sample Report
+              </Button>
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  const doc = generateSampleReportPdf();
+                  doc.save('freedom2operate-sample-report.pdf');
+                }}
+              >
+                Download Sample PDF
+              </Button>
+            </Box>
+          </Paper>
+        </>
+      )}
+
+      {/* Report Dialog */}
+      <Dialog
+        open={dialogType === 'report'}
+        onClose={handleCloseDialog}
+        maxWidth="xl"
+        fullWidth
+      >
+        <DialogTitle>
+          {selectedSubmission?.id === 'sample-report-001' 
+            ? 'Sample FTO Search Report'
+            : `${selectedSubmission?.projectName} - Search Report`}
+        </DialogTitle>
+        <DialogContent>
+          {selectedSubmission && (
+            <Box sx={{ mt: 2 }}>
+              <SearchReportTemplate 
+                submissionId={selectedSubmission.id}
+                initialData={selectedSubmission.id === 'sample-report-001' ? sampleReport : undefined}
+                readOnly={selectedSubmission.id === 'sample-report-001'}
+              />
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDialog}>Close</Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };

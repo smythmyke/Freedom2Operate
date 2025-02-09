@@ -15,6 +15,7 @@ import Dashboard from './components/Dashboard';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import AdminRoute from './components/auth/AdminRoute';
 import AdminDashboard from './components/admin/AdminDashboard';
+import { FTODetailedPage } from './components/FTOEducation';
 
 const theme = createTheme({
   palette: {
@@ -57,6 +58,7 @@ function App() {
               <Route path="/about" element={<AboutPage />} />
               <Route path="/contact" element={<ContactPage />} />
               <Route path="/expertise" element={<TechnicalExpertisePage />} />
+              <Route path="/fto-details" element={<FTODetailedPage />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route 

@@ -1,7 +1,5 @@
-import { useEffect, useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
-import DownloadIcon from '@mui/icons-material/Download';
+import { useEffect, useState, useCallback } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Container,
   Typography,
@@ -24,11 +22,28 @@ import {
   Chip,
   Link,
 } from '@mui/material';
-import VideoCallRequest from './VideoCallRequest';
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import DownloadIcon from '@mui/icons-material/Download';
+import { 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  orderBy, 
+  doc as firestoreDoc, 
+  getDoc,
+  onSnapshot,
+  QuerySnapshot,
+  DocumentData,
+  QueryDocumentSnapshot 
+} from 'firebase/firestore';
+import { useAuth } from '../contexts/AuthContext';
 import { db } from '../firebase';
+import { FormStep } from '../types';
+import { ProjectStatus } from './ProjectProgress';
 import ProjectProgress from './ProjectProgress';
 import PaymentHistory from './PaymentHistory';
+import VideoCallRequest from './VideoCallRequest';
+import SampleReportView from './reports/SampleReportView';
 
 // Helper function to properly capitalize titles
 const toTitleCase = (str: string) => {
@@ -46,9 +61,6 @@ const toTitleCase = (str: string) => {
     return word.charAt(0).toUpperCase() + word.slice(1);
   }).join(' ');
 };
-
-import { ProjectStatus } from './ProjectProgress';
-import { FormStep } from '../types';
 
 interface ReferenceData {
   referenceNumber: string;
@@ -91,9 +103,11 @@ interface PaymentData {
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { currentUser, userProfile, updateProfile } = useAuth();
   const [references, setReferences] = useState<ReferenceData[]>([]);
   const [openVideoCall, setOpenVideoCall] = useState(false);
+  const [openSampleReport, setOpenSampleReport] = useState(false);
   const [progressData, setProgressData] = useState<ProgressData[]>([]);
   const [payments, setPayments] = useState<PaymentData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -106,37 +120,45 @@ const Dashboard = () => {
   const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      if (!currentUser) return;
+    if (userProfile) {
+      setProfileFormData({
+        displayName: userProfile.displayName || '',
+        company: userProfile.company || '',
+        phone: userProfile.phone || '',
+      });
+    }
+  }, [userProfile]);
 
-      try {
-        // Fetch submissions and their NDAs
-        const submissionsQuery = query(
-          collection(db, 'submissions'),
-          where('userId', '==', currentUser.uid),
-          orderBy('createdAt', 'desc')
-        );
-        
-        const submissionsSnapshot = await getDocs(submissionsQuery);
+  const fetchDashboardData = useCallback(async () => {
+    if (!currentUser) return;
+
+    try {
+      // Fetch submissions with status filter
+      const submissionsQuery = query(
+        collection(db, 'submissions'),
+        where('userId', '==', currentUser.uid),
+        where('status', 'in', ['Draft', 'Submitted', 'Pending Review']),
+        orderBy('createdAt', 'desc')
+      );
+
+      // Set up real-time listeners
+      const unsubscribeSubmissions = onSnapshot(submissionsQuery, async (snapshot: QuerySnapshot<DocumentData>) => {
         const refsData: ReferenceData[] = [];
         
-        for (const doc of submissionsSnapshot.docs) {
+        for (const doc of snapshot.docs) {
           const data = doc.data();
           let ndaInfo;
 
           // If submission has an NDA ID, fetch the NDA details
           if (data.ndaId) {
-            const ndaQuery = query(
-              collection(db, 'ndaAgreements'),
-              where('id', '==', data.ndaId)
-            );
-            const ndaSnapshot = await getDocs(ndaQuery);
-            if (!ndaSnapshot.empty) {
-              const ndaData = ndaSnapshot.docs[0].data();
+            const ndaDoc = firestoreDoc(db, 'ndaAgreements', data.ndaId);
+            const ndaSnapshot = await getDoc(ndaDoc);
+            if (ndaSnapshot.exists()) {
+              const ndaData = ndaSnapshot.data();
               ndaInfo = {
-                id: ndaData.id,
-                signedAt: new Date(ndaData.signedAt.toDate()),
-                pdfUrl: ndaData.pdfUrl
+                id: data.ndaId,
+                signedAt: new Date(ndaData?.signedAt?.toDate() || new Date()),
+                pdfUrl: ndaData?.pdfUrl
               };
             }
           }
@@ -155,20 +177,21 @@ const Dashboard = () => {
             ndaInfo
           });
         }
-
+        
         setReferences(refsData);
+      });
 
-        // Fetch progress data
-        const progressQuery = query(
-          collection(db, 'progress'),
-          where('userId', '==', currentUser.uid),
-          orderBy('createdAt', 'desc')
-        );
-        
-        const progressSnapshot = await getDocs(progressQuery);
+      // Set up real-time listener for progress
+      const progressQuery = query(
+        collection(db, 'progress'),
+        where('userId', '==', currentUser?.uid || ''),
+        where('status', 'in', ['Submitted', 'Pending Review']),
+        orderBy('createdAt', 'desc')
+      );
+
+      const unsubscribeProgress = onSnapshot(progressQuery, (snapshot: QuerySnapshot<DocumentData>) => {
         const progressData: ProgressData[] = [];
-        
-        progressSnapshot.forEach((doc) => {
+        snapshot.forEach((doc: QueryDocumentSnapshot<DocumentData>) => {
           const data = doc.data();
           progressData.push({
             currentStep: data.currentStep,
@@ -177,20 +200,19 @@ const Dashboard = () => {
             submissionId: data.submissionId,
           });
         });
-
         setProgressData(progressData);
+      });
 
-        // Fetch payments
-        const paymentsQuery = query(
-          collection(db, 'payments'),
-          where('userId', '==', currentUser.uid),
-          orderBy('createdAt', 'desc')
-        );
-        
-        const paymentsSnapshot = await getDocs(paymentsQuery);
+      // Set up real-time listener for payments
+      const paymentsQuery = query(
+        collection(db, 'payments'),
+        where('userId', '==', currentUser?.uid || ''),
+        orderBy('createdAt', 'desc')
+      );
+
+      const unsubscribePayments = onSnapshot(paymentsQuery, (snapshot: QuerySnapshot<DocumentData>) => {
         const paymentsData: PaymentData[] = [];
-        
-        paymentsSnapshot.forEach((doc) => {
+        snapshot.forEach((doc: QueryDocumentSnapshot<DocumentData>) => {
           const data = doc.data();
           paymentsData.push({
             id: doc.id,
@@ -200,28 +222,38 @@ const Dashboard = () => {
             submissionId: data.submissionId,
           });
         });
-
         setPayments(paymentsData);
+      });
 
-      } catch (error) {
-        console.error('Error fetching dashboard data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+      // Clean up listeners on unmount
+      return () => {
+        unsubscribeSubmissions();
+        unsubscribeProgress();
+        unsubscribePayments();
+      };
 
-    fetchDashboardData();
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+      setReferences([]);
+      setProgressData([]);
+      setPayments([]);
+    } finally {
+      setLoading(false);
+    }
   }, [currentUser]);
 
+  // Initial data fetch
   useEffect(() => {
-    if (userProfile) {
-      setProfileFormData({
-        displayName: userProfile.displayName || '',
-        company: userProfile.company || '',
-        phone: userProfile.phone || '',
-      });
+    fetchDashboardData();
+  }, [fetchDashboardData]);
+
+  // Fetch data when navigating back with refresh flag
+  useEffect(() => {
+    const state = location.state as { refresh?: boolean } | null;
+    if (state?.refresh) {
+      fetchDashboardData();
     }
-  }, [userProfile]);
+  }, [location, fetchDashboardData]);
 
   const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -285,11 +317,18 @@ const Dashboard = () => {
           >
             Request Video Call
           </Button>
+          <Button
+            variant="outlined"
+            color="info"
+            onClick={() => setOpenSampleReport(true)}
+          >
+            View Sample Report
+          </Button>
         </Box>
       </Paper>
       
+      {/* Profile Section */}
       <Grid container spacing={3}>
-        {/* Profile Section */}
         <Grid item xs={12}>
           <Paper sx={{ p: 3, mb: 4 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
@@ -534,6 +573,18 @@ const Dashboard = () => {
         onClose={() => setOpenVideoCall(false)}
         references={references}
       />
+
+      {/* Sample Report Dialog */}
+      <Dialog 
+        open={openSampleReport} 
+        onClose={() => setOpenSampleReport(false)}
+        maxWidth="xl"
+        fullWidth
+      >
+        <DialogContent sx={{ p: 0 }}>
+          <SampleReportView onClose={() => setOpenSampleReport(false)} />
+        </DialogContent>
+      </Dialog>
     </Container>
   );
 };
